@@ -1,3 +1,4 @@
+// components/layout/PrivateLayout.tsx
 import Navbar from '../Navbar';
 import { useAuth } from '../../hooks/useAuth';
 import { useRouter } from 'next/router';
@@ -9,7 +10,7 @@ const PrivateLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/login'); // Redirige al login si no está autenticado
+      router.push('/login');
     }
   }, [loading, user, router]);
 
