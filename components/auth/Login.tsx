@@ -7,9 +7,30 @@ import {
   GoogleAuthProvider,
   FacebookAuthProvider,
   OAuthProvider,
+  User,
 } from "firebase/auth";
-import { auth } from "../../lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "../../lib/firebase";
 import { FaGoogle, FaFacebook, FaApple } from "react-icons/fa";
+
+// Función auxiliar para redirigir según rol
+const redirectByRole = async (user: User, router: ReturnType<typeof useRouter>) => {
+  if (!user) return;
+  try {
+    const ref = doc(db, "users", user.uid);
+    const snap = await getDoc(ref);
+    const data = snap.data();
+    if (data?.role === "empresario") {
+      router.push("/dashboard/empresario");
+    } else if (data?.role === "consultor") {
+      router.push("/dashboard/consultor");
+    } else {
+      router.push("/dashboard/inicio");
+    }
+  } catch (e) {
+    router.push("/dashboard/inicio");
+  }
+};
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -21,8 +42,8 @@ const Login = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      router.push("/dashboard/inicio");
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      await redirectByRole(userCredential.user, router);
     } catch (err: any) {
       setError(err.message || "Error al iniciar sesión. Verifica tus credenciales.");
     }
@@ -32,8 +53,8 @@ const Login = () => {
   const handleGoogleLogin = async () => {
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
-      router.push("/dashboard/inicio");
+      const userCredential = await signInWithPopup(auth, provider);
+      await redirectByRole(userCredential.user, router);
     } catch (err: any) {
       setError(err.message || "Error al iniciar sesión con Google.");
     }
@@ -43,8 +64,8 @@ const Login = () => {
   const handleFacebookLogin = async () => {
     const provider = new FacebookAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
-      router.push("/dashboard/inicio");
+      const userCredential = await signInWithPopup(auth, provider);
+      await redirectByRole(userCredential.user, router);
     } catch (err: any) {
       setError(err.message || "Error al iniciar sesión con Facebook.");
     }
@@ -54,8 +75,8 @@ const Login = () => {
   const handleAppleLogin = async () => {
     const provider = new OAuthProvider("apple.com");
     try {
-      await signInWithPopup(auth, provider);
-      router.push("/dashboard/inicio");
+      const userCredential = await signInWithPopup(auth, provider);
+      await redirectByRole(userCredential.user, router);
     } catch (err: any) {
       setError(err.message || "Error al iniciar sesión con Apple.");
     }
