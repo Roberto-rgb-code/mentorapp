@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.797.0",
+    "@heroicons/react": "^2.2.0",
     "@react-three/drei": "^10.5.1",
     "@react-three/fiber": "^9.2.0",
     "@tsparticles/engine": "^3.8.1",
@@ -20,6 +21,8 @@
     "firebase": "^11.5.0",
     "framer-motion": "^12.23.6",
     "gsap": "^3.13.0",
+    "html2canvas-pro": "^1.5.11",
+    "jspdf": "^3.0.1",
     "next": "15.2.4",
     "postcss": "^8.5.3",
     "react": "^19.0.0",

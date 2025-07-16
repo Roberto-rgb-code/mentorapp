@@ -1,75 +1,138 @@
-import { useState, useEffect, ChangeEvent } from "react";
-import { useAuth } from "../../../contexts/AuthContext";
-import s3 from "../../../lib/aws";
-import {
-  PutObjectCommand,
-  GetObjectCommand,
-  ListObjectsV2Command,
-  DeleteObjectCommand,
-} from "@aws-sdk/client-s3";
-import PrivateLayout from "../../../components/layout/PrivateLayout";
-import 'animate.css';
+// pages/dashboard/diagnostico/empresarial.tsx
 
-// Interfaz para los datos del diagnóstico
+import { useState, useEffect, ChangeEvent, useRef } from "react";
+import { useAuth } from "../../../contexts/AuthContext";
+import PrivateLayout from "../../../components/layout/PrivateLayout";
+import "animate.css"; // Assuming you have animate.css installed and configured
+import jsPDF from "jspdf";
+import html2canvas from 'html2canvas-pro';
+import {
+  XCircleIcon,
+  CheckCircleIcon,
+  ExclamationCircleIcon,
+  BookOpenIcon,
+  LightBulbIcon, // Estrategia
+  ChartBarIcon, // Finanzas
+  MegaphoneIcon, // Marketing
+  Cog6ToothIcon, // Operaciones
+  ComputerDesktopIcon, // Tecnología
+  ShieldCheckIcon, // Legal
+  UsersIcon, // Recursos Humanos
+  ScaleIcon, // General for some aspect
+  CurrencyDollarIcon, // General for some aspect
+  PencilSquareIcon, // Added for Edit
+  TrashIcon, // Added for Delete
+  PlusCircleIcon, // Added for "New Diagnostic" button
+} from "@heroicons/react/24/solid"; // Import specific icons
+
+// Define the interface for the comprehensive LLM analysis result
+interface LLMAnalysisResult {
+  resumen_ejecutivo: string;
+  semaforo_riesgo: {
+    estrategia?: "verde" | "amarillo" | "rojo";
+    finanzas?: "verde" | "amarillo" | "rojo";
+    marketing?: "verde" | "amarillo" | "rojo";
+    operaciones?: "verde" | "amarillo" | "rojo";
+    tecnologia?: "verde" | "amarillo" | "rojo";
+    legal?: "verde" | "amarillo" | "rojo";
+    recursos_humanos?: "verde" | "amarillo" | "rojo";
+    // Making these optional with '?' because the LLM might not always return all of them
+    // Or you might want to provide default fallbacks
+  };
+  fortalezas: string[];
+  areas_oportunidad: string[];
+  recomendaciones: string[];
+  score_global: number;
+}
+
+// Ensure default structure for semaforo_riesgo
+const defaultSemaforoRiesgo: LLMAnalysisResult['semaforo_riesgo'] = {
+  estrategia: "rojo",
+  finanzas: "rojo",
+  marketing: "rojo",
+  operaciones: "rojo",
+  tecnologia: "rojo",
+  legal: "rojo",
+  recursos_humanos: "rojo",
+};
+
+
 interface DiagnosticoData {
   userId: string;
-  // Bloque 1: Datos del Empresario
   nombreCompleto: string;
-  edad: string;
-  ciudadEstado: string;
-  ultimoGradoEstudios: string;
-  experienciaEmprendedor: string;
-  esPrincipalIngreso: string;
-  // Bloque 2: Perfil del Negocio
-  etapaNegocio: string;
-  giroActividad: string;
-  giroActividadOtro: string;
-  industriaNegocio: string;
-  industriaNegocioOtro: string;
-  constitucionLegal: string;
+  nombreEmpresa: string;
+  tipoNegocio: string;
+  tiempoOperacion: string;
+  facturacionAnual: string;
+  situacionFinanciera: string;
+  accesoFinanciamiento: string;
+  flujoEfectivo: string;
+  gestionFinanciera: string; // Changed from retoGestionFinanciera for consistency
+  propuestaValor: string;
   modeloNegocio: string;
-  lugaresVenta: string[];
-  // Bloque 3: Estrategia y Planeación
-  planEstrategico: string;
-  frecuenciaRevision: string;
-  obstaculoEstrategico: string;
-  // Bloque 4: Finanzas
-  controlFinanciero: string;
-  costoOperacionMensual: string;
-  preocupacionFinanciera: string;
-  // Bloque 5: Marketing y Ventas
+  ventajaCompetitiva: string;
+  innovacionProducto: string;
   estrategiaMarketing: string;
   perfilesClientes: string;
   cierreVentas: string;
   retoComercial: string;
-  // Bloque 6: Operaciones y Procesos
   procesosDocumentados: string;
   herramientasControl: string;
   eficienciaOperacion: string;
   obstaculoOperativo: string;
-  // Bloque 7: Recursos Humanos
   numeroPersonas: string;
   sistemaGestionRH: string;
   retoGestionPersonas: string;
-  // Bloque 8: Tecnología y Digitalización
   herramientasDigitales: string;
   retoTecnologico: string;
-  // Bloque 9: Legal y Fiscal
   claridadFiscalLegal: string;
   contratosPoliticas: string;
   createdAt: string;
+  // Add an optional field for the analysis result directly in the saved data
+  analysisResult?: LLMAnalysisResult;
 }
 
+const initialDiagnostico: DiagnosticoData = {
+  userId: "",
+  nombreCompleto: "",
+  nombreEmpresa: "",
+  tipoNegocio: "",
+  tiempoOperacion: "",
+  facturacionAnual: "",
+  situacionFinanciera: "",
+  accesoFinanciamiento: "",
+  flujoEfectivo: "",
+  gestionFinanciera: "",
+  propuestaValor: "",
+  modeloNegocio: "",
+  ventajaCompetitiva: "",
+  innovacionProducto: "",
+  estrategiaMarketing: "",
+  perfilesClientes: "",
+  cierreVentas: "",
+  retoComercial: "",
+  procesosDocumentados: "",
+  herramientasControl: "",
+  eficienciaOperacion: "",
+  obstaculoOperativo: "",
+  numeroPersonas: "",
+  sistemaGestionRH: "",
+  retoGestionPersonas: "",
+  herramientasDigitales: "",
+  retoTecnologico: "",
+  claridadFiscalLegal: "",
+  contratosPoliticas: "",
+  createdAt: "",
+};
+
 const DiagnosticoEmpresarial = () => {
-  const { user } = useAuth();
-  const [diagnosticos, setDiagnosticos] = useState<(DiagnosticoData & { _key: string })[]>([]);
-  const [selectedDiagnostico, setSelectedDiagnostico] = useState<(DiagnosticoData & { _key: string }) | null>(null);
-  const [mensaje, setMensaje] = useState<{ error?: string; success?: string }>({});
-  const [showForm, setShowForm] = useState(false);
-  const [editingKey, setEditingKey] = useState<string | null>(null);
-  const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
-  const [expandedBlocks, setExpandedBlocks] = useState<{ [key: string]: boolean }>({
-    bloque1: true,
+  const { user } = useAuth(); // Assuming useAuth provides a 'user' object with 'uid'
+  const [diagnostico, setDiagnostico] =
+    useState<DiagnosticoData>(initialDiagnostico);
+  const [expandedBlocks, setExpandedBlocks] = useState<{
+    [key: string]: boolean;
+  }>({
+    bloque1: true, // Expand the first block by default
     bloque2: false,
     bloque3: false,
     bloque4: false,
@@ -79,1464 +142,1757 @@ const DiagnosticoEmpresarial = () => {
     bloque8: false,
     bloque9: false,
   });
+  const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
+  const [mensaje, setMensaje] = useState<{ error?: string; success?: string }>(
+    {}
+  );
+  // Type analysis with the new LLMAnalysisResult interface
+  const [analisis, setAnalisis] = useState<LLMAnalysisResult | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [diagnosticosList, setDiagnosticosList] = useState<DiagnosticoData[]>(
+    []
+  );
+  const [showForm, setShowForm] = useState(true);
+  const [selectedDiagnostico, setSelectedDiagnostico] =
+    useState<DiagnosticoData | null>(null);
+  const [editingKey, setEditingKey] = useState<string | null>(null);
 
-  // Estado inicial del diagnóstico
-  const initialDiagnostico: DiagnosticoData = {
-    userId: user?.uid || "",
-    nombreCompleto: "",
-    edad: "",
-    ciudadEstado: "",
-    ultimoGradoEstudios: "",
-    experienciaEmprendedor: "",
-    esPrincipalIngreso: "",
-    etapaNegocio: "",
-    giroActividad: "",
-    giroActividadOtro: "",
-    industriaNegocio: "",
-    industriaNegocioOtro: "",
-    constitucionLegal: "",
-    modeloNegocio: "",
-    lugaresVenta: [],
-    planEstrategico: "",
-    frecuenciaRevision: "",
-    obstaculoEstrategico: "",
-    controlFinanciero: "",
-    costoOperacionMensual: "",
-    preocupacionFinanciera: "",
-    estrategiaMarketing: "",
-    perfilesClientes: "",
-    cierreVentas: "",
-    retoComercial: "",
-    procesosDocumentados: "",
-    herramientasControl: "",
-    eficienciaOperacion: "",
-    obstaculoOperativo: "",
-    numeroPersonas: "",
-    sistemaGestionRH: "",
-    retoGestionPersonas: "",
-    herramientasDigitales: "",
-    retoTecnologico: "",
-    claridadFiscalLegal: "",
-    contratosPoliticas: "",
-    createdAt: new Date().toISOString(),
-  };
-  const [diagnostico, setDiagnostico] = useState<DiagnosticoData>(initialDiagnostico);
+  // Ref for the analysis report section to be captured as PDF
+  const analysisReportRef = useRef<HTMLDivElement>(null);
 
-  // Cargar diagnósticos desde S3
   useEffect(() => {
-    if (!user) {
-      setMensaje({ error: "Inicia sesión primero." });
-      return;
-    }
-    const fetchDiagnosticos = async () => {
-      try {
-        const list = await-s3.send(
-          new ListObjectsV2Command({ Bucket: process.env.NEXT_PUBLIC_S3_BUCKET!, Prefix: "diagnosticos/empresarial/" })
-        );
-        const items = list.Contents?.map((i) => i.Key!).filter(Boolean) || [];
-        const datos = await Promise.all(
-          items.map(async (Key) => {
-            if (!Key.endsWith('.json')) return null;
-            try {
-              const res = await s3.send(new GetObjectCommand({ Bucket: process.env.NEXT_PUBLIC_S3_BUCKET!, Key }));
-              const body = await res.Body?.transformToString('utf-8');
-              if (body) {
-                const data = JSON.parse(body) as DiagnosticoData;
-                return { ...data, _key: Key };
-              }
-              return null;
-            } catch (fetchError) {
-              console.error(`Error al leer el archivo ${Key}:`, fetchError);
-              return null;
-            }
-          })
-        );
-        const uniqueDatos = datos
-          .filter((d): d is DiagnosticoData & { _key: string } => d !== null)
-          .filter((d, index, self) => index === self.findIndex((t) => t._key === d._key));
-        setDiagnosticos(uniqueDatos);
-        if (uniqueDatos.length > 0) {
-          setSelectedDiagnostico(uniqueDatos[0]);
-        }
-      } catch (e) {
-        console.error("Error al cargar diagnósticos:", e);
-        setMensaje({ error: "Error al cargar diagnósticos." });
-      }
-    };
-    fetchDiagnosticos();
-  }, [user]);
+    handleLoadFromLocalStorage();
+  }, []);
 
-  // Manejar cambios en el formulario
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value, type, checked } = e.target as HTMLInputElement;
-    setDiagnostico((prev) => {
-      const newDiagnostico = { ...prev };
-      if (type === "checkbox") {
-        if (name === "lugaresVenta") {
-          if (checked) {
-            if (prev.lugaresVenta.length < 2) {
-              newDiagnostico.lugaresVenta = [...prev.lugaresVenta, value];
-            }
-          } else {
-            newDiagnostico.lugaresVenta = prev.lugaresVenta.filter((lugar) => lugar !== value);
-          }
-        }
-      } else {
-        newDiagnostico[name] = value;
-      }
+  const toggleBlock = (blockName: string) => {
+    setExpandedBlocks((prev) => ({
+      ...prev,
+      [blockName]: !prev[blockName],
+    }));
+  };
+
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setDiagnostico((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+    // Clear error for the current field as soon as it's changed
+    if (formErrors[name]) {
       setFormErrors((prev) => {
         const newErrors = { ...prev };
         delete newErrors[name];
-        if (name === "lugaresVenta" && newDiagnostico.lugaresVenta.length > 0) {
-          delete newErrors.lugaresVenta;
-        }
         return newErrors;
       });
-      return newDiagnostico;
-    });
+    }
   };
 
-  // Validar campos requeridos
   const validateForm = () => {
     const errors: { [key: string]: string } = {};
-    if (!diagnostico.nombreCompleto) errors.nombreCompleto = "El nombre completo es obligatorio";
-    if (!diagnostico.edad) errors.edad = "La edad es obligatoria";
-    if (!diagnostico.ciudadEstado) errors.ciudadEstado = "La ciudad/estado es obligatoria";
-    if (!diagnostico.ultimoGradoEstudios) errors.ultimoGradoEstudios = "El último grado de estudios es obligatorio";
-    if (!diagnostico.experienciaEmprendedor) errors.experienciaEmprendedor = "La experiencia como emprendedor es obligatoria";
-    if (!diagnostico.esPrincipalIngreso) errors.esPrincipalIngreso = "Este campo es obligatorio";
-    if (!diagnostico.etapaNegocio) errors.etapaNegocio = "La etapa del negocio es obligatoria";
-    if (!diagnostico.giroActividad) errors.giroActividad = "El giro de actividad es obligatorio";
-    if (diagnostico.giroActividad === "Otro" && !diagnostico.giroActividadOtro) errors.giroActividadOtro = "Especifique el giro de actividad";
-    if (!diagnostico.industriaNegocio) errors.industriaNegocio = "La industria del negocio es obligatoria";
-    if (diagnostico.industriaNegocio === "Otro" && !diagnostico.industriaNegocioOtro) errors.industriaNegocioOtro = "Especifique la industria";
-    if (!diagnostico.constituciónLegal) errors.constituciónLegal = "La constitución legal es obligatoria";
-    if (!diagnostico.modeloNegocio) errors.modeloNegocio = "El modelo de negocio es obligatorio";
-    if (diagnostico.lugaresVenta.length === 0) errors.lugaresVenta = "Selecciona al menos un lugar de venta";
-    if (!diagnostico.planEstrategico) errors.planEstrategico = "El plan estratégico es obligatorio";
-    if (!diagnostico.frecuenciaRevision) errors.frecuenciaRevision = "La frecuencia de revisión es obligatoria";
-    if (!diagnostico.obstaculoEstrategico) errors.obstaculoEstrategico = "El obstáculo estratégico es obligatorio";
-    if (!diagnostico.controlFinanciero) errors.controlFinanciero = "El control financiero es obligatorio";
-    if (!diagnostico.costoOperacionMensual) errors.costoOperacionMensual = "Este campo es obligatorio";
-    if (!diagnostico.preocupacionFinanciera) errors.preocupacionFinanciera = "La preocupación financiera es obligatoria";
-    if (!diagnostico.estrategiaMarketing) errors.estrategiaMarketing = "La estrategia de marketing es obligatoria";
-    if (!diagnostico.perfilesClientes) errors.perfilesClientes = "Los perfiles de clientes son obligatorios";
-    if (!diagnostico.cierreVentas) errors.cierreVentas = "El método de cierre de ventas es obligatorio";
-    if (!diagnostico.retoComercial) errors.retoComercial = "El reto comercial es obligatorio";
-    if (!diagnostico.procesosDocumentados) errors.procesosDocumentados = "Este campo es obligatorio";
-    if (!diagnostico.herramientasControl) errors.herramientasControl = "Las herramientas de control son obligatorias";
-    if (!diagnostico.eficienciaOperacion) errors.eficienciaOperacion = "La eficiencia operativa es obligatoria";
-    if (!diagnostico.obstaculoOperativo) errors.obstaculoOperativo = "El obstáculo operativo es obligatorio";
-    if (!diagnostico.numeroPersonas) errors.numeroPersonas = "El número de personas es obligatorio";
-    if (!diagnostico.sistemaGestionRH) errors.sistemaGestionRH = "El sistema de gestión de RH es obligatorio";
-    if (!diagnostico.retoGestionPersonas) errors.retoGestionPersonas = "El reto de gestión de personas es obligatorio";
-    if (!diagnostico.herramientasDigitales) errors.herramientasDigitales = "Las herramientas digitales son obligatorias";
-    if (!diagnostico.retoTecnologico) errors.retoTecnologico = "El reto tecnológico es obligatorio";
-    if (!diagnostico.claridadFiscalLegal) errors.claridadFiscalLegal = "La claridad fiscal/legal es obligatoria";
-    if (!diagnostico.contratosPoliticas) errors.contratosPoliticas = "Este campo es obligatorio";
+    // Iterate over each field in initialDiagnostico to check if it's filled
+    // This is a more dynamic way to validate
+    for (const key in initialDiagnostico) {
+      // Exclude userId and createdAt from validation as they are set programmatically
+      if (key !== 'userId' && key !== 'createdAt' && key !== 'analysisResult') {
+        const value = diagnostico[key as keyof DiagnosticoData];
+        // Check if value is empty string, null, or undefined
+        if (typeof value === 'string' && value.trim() === '') {
+          errors[key] = `El campo '${key.replace(/([A-Z])/g, ' $1').toLowerCase()}' es obligatorio.`;
+        }
+      }
+    }
+
+    // Specific messages for known fields if you prefer them over generic ones
+    if (!diagnostico.nombreCompleto.trim()) {
+      errors.nombreCompleto = "El nombre completo es obligatorio.";
+    }
+    if (!diagnostico.nombreEmpresa.trim()) {
+      errors.nombreEmpresa = "El nombre de la empresa es obligatorio.";
+    }
+    // ... continue with specific error messages if desired, otherwise the loop above handles it.
+    // The specific checks below are redundant if the loop above is kept, but they provide
+    // more user-friendly messages for key fields. Keep them if you want specific messages.
+    if (!diagnostico.tipoNegocio) errors.tipoNegocio = "Selecciona un tipo de negocio.";
+    if (!diagnostico.tiempoOperacion) errors.tiempoOperacion = "Selecciona el tiempo de operación.";
+    if (!diagnostico.facturacionAnual) errors.facturacionAnual = "Selecciona la facturación anual.";
+    if (!diagnostico.situacionFinanciera) errors.situacionFinanciera = "Selecciona la situación financiera.";
+    if (!diagnostico.accesoFinanciamiento) errors.accesoFinanciamiento = "Selecciona el acceso a financiamiento.";
+    if (!diagnostico.flujoEfectivo) errors.flujoEfectivo = "Selecciona el flujo de efectivo.";
+    if (!diagnostico.gestionFinanciera) errors.gestionFinanciera = "Selecciona la gestión financiera.";
+    if (!diagnostico.propuestaValor) errors.propuestaValor = "Selecciona la propuesta de valor.";
+    if (!diagnostico.modeloNegocio) errors.modeloNegocio = "Selecciona el modelo de negocio.";
+    if (!diagnostico.ventajaCompetitiva) errors.ventajaCompetitiva = "Selecciona la ventaja competitiva.";
+    if (!diagnostico.innovacionProducto) errors.innovacionProducto = "Selecciona la innovación de producto.";
+    if (!diagnostico.estrategiaMarketing) errors.estrategiaMarketing = "Selecciona la estrategia de marketing.";
+    if (!diagnostico.perfilesClientes) errors.perfilesClientes = "Selecciona la definición de perfiles de clientes.";
+    if (!diagnostico.cierreVentas) errors.cierreVentas = "Selecciona cómo cierras tus ventas.";
+    if (!diagnostico.retoComercial) errors.retoComercial = "Selecciona el principal reto comercial.";
+    if (!diagnostico.procesosDocumentados) errors.procesosDocumentados = "Selecciona si tienes procesos documentados.";
+    if (!diagnostico.herramientasControl) errors.herramientasControl = "Selecciona tus herramientas de control.";
+    if (!diagnostico.eficienciaOperacion) errors.eficienciaOperacion = "Selecciona cómo evalúas la eficiencia operativa.";
+    if (!diagnostico.obstaculoOperativo) errors.obstaculoOperativo = "Selecciona el obstáculo operativo más frecuente.";
+    if (!diagnostico.numeroPersonas) errors.numeroPersonas = "Selecciona el número de personas que trabajan contigo.";
+    if (!diagnostico.sistemaGestionRH) errors.sistemaGestionRH = "Selecciona el sistema de gestión de RH.";
+    if (!diagnostico.retoGestionPersonas) errors.retoGestionPersonas = "Selecciona el reto en gestión de personas.";
+    if (!diagnostico.herramientasDigitales) errors.herramientasDigitales = "Selecciona tus herramientas digitales.";
+    if (!diagnostico.retoTecnologico) errors.retoTecnologico = "Selecciona tu mayor reto tecnológico.";
+    if (!diagnostico.claridadFiscalLegal) errors.claridadFiscalLegal = "Selecciona tu claridad fiscal y legal.";
+    if (!diagnostico.contratosPoliticas) errors.contratosPoliticas = "Selecciona sobre tus contratos y políticas.";
+
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  // Crear o actualizar diagnóstico
+  const handleSaveToLocalStorage = (data: DiagnosticoData[]) => {
+    localStorage.setItem("diagnosticos", JSON.stringify(data));
+  };
+
+  const handleLoadFromLocalStorage = () => {
+    const storedDiagnosticos = localStorage.getItem("diagnosticos");
+    if (storedDiagnosticos) {
+      setDiagnosticosList(JSON.parse(storedDiagnosticos));
+    }
+  };
+
   const submitDiagnostico = async () => {
+    setMensaje({}); // Clear previous messages
+    setAnalisis(null); // Clear previous analysis
+
     if (!user) {
-      setMensaje({ error: "Inicia sesión primero." });
+      setMensaje({ error: "Debes iniciar sesión para guardar el diagnóstico." });
       return;
     }
+
     if (!validateForm()) {
-      setMensaje({ error: "Por favor, completa todos los campos obligatorios." });
+      // Scroll to the first error if validation fails
+      const firstErrorField = Object.keys(formErrors)[0];
+      if (firstErrorField) {
+        const element = document.getElementById(firstErrorField);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+      setMensaje({ error: "Por favor, completa todos los campos requeridos." });
       return;
     }
+
+    setIsLoading(true);
+    const diagnosticoToSave = {
+      ...diagnostico,
+      userId: user.uid, // Assuming user.uid is available from useAuth()
+      createdAt: editingKey || new Date().toISOString(), // Use existing key for edit, new for create
+    };
+
     try {
-      const Key = editingKey || `diagnosticos/empresarial/${user.uid}-${Date.now()}.json`;
-      await s3.send(
-        new PutObjectCommand({
-          Bucket: process.env.NEXT_PUBLIC_S3_BUCKET!,
-          Key,
-          Body: JSON.stringify({ ...diagnostico, userId: user.uid, createdAt: new Date().toISOString() }),
-          ContentType: "application/json",
-          ContentEncoding: "utf-8",
-        })
-      );
-      setDiagnosticos((prev) =>
-        editingKey
-          ? prev.map((d) => (d._key === Key ? { ...diagnostico, _key: Key } : d))
-          : [...prev, { ...diagnostico, _key: Key }]
-      );
-      setMensaje({ success: editingKey ? "Diagnóstico actualizado." : "Diagnóstico guardado." });
-      setShowForm(false);
-      setEditingKey(null);
-      setDiagnostico(initialDiagnostico);
-      setFormErrors({});
-      setSelectedDiagnostico({ ...diagnostico, _key: Key });
+      // API call to analyze the diagnostic (your backend's analyze endpoint)
+      const res = await fetch("http://127.0.0.1:8000/api/diagnostico/analyze", { // Changed to /analyze as per your API docs
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(diagnosticoToSave),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(
+          errorData.detail || "Error en el análisis del diagnóstico."
+        );
+      }
+
+      const analysisData: LLMAnalysisResult = await res.json(); // Cast to the new interface
+      setAnalisis(analysisData); // Store the analysis results
+
+      let updatedList;
+      if (editingKey) {
+        updatedList = diagnosticosList.map((diag) =>
+          diag.createdAt === editingKey
+            ? { ...diagnosticoToSave, analysisResult: analysisData } // Save analysis with the data
+            : diag
+        );
+        setEditingKey(null);
+        setMensaje({ success: "Diagnóstico actualizado y analizado correctamente." });
+      } else {
+        updatedList = [...diagnosticosList, { ...diagnosticoToSave, analysisResult: analysisData }]; // Save analysis with the new data
+        setMensaje({ success: "Diagnóstico guardado y analizado correctamente." });
+      }
+
+      setDiagnosticosList(updatedList);
+      handleSaveToLocalStorage(updatedList);
+      setDiagnostico(initialDiagnostico); // Reset form
+      setShowForm(false); // After submission, show the list
+      setSelectedDiagnostico(null); // Ensure no old detailed view is shown
+    } catch (err: any) {
+      console.error("Error al procesar el diagnóstico:", err);
+      setMensaje({
+        error:
+          err.message || "No se pudo guardar ni analizar el diagnóstico. Intenta de nuevo más tarde.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const editDiagnostico = (key: string) => {
+    const diagToEdit = diagnosticosList.find((diag) => diag.createdAt === key);
+    if (diagToEdit) {
+      setDiagnostico(diagToEdit);
+      setEditingKey(key);
+      setShowForm(true);
+      setSelectedDiagnostico(null);
+      setAnalisis(diagToEdit.analysisResult || null); // Load existing analysis if available
+      setMensaje({}); // Clear messages
+      // Optionally expand all blocks when editing
       setExpandedBlocks({
         bloque1: true,
-        bloque2: false,
-        bloque3: false,
-        bloque4: false,
-        bloque5: false,
-        bloque6: false,
-        bloque7: false,
-        bloque8: false,
-        bloque9: false,
+        bloque2: true,
+        bloque3: true,
+        bloque4: true,
+        bloque5: true,
+        bloque6: true,
+        bloque7: true,
+        bloque8: true,
+        bloque9: true,
       });
-    } catch (e) {
-      console.error("Error al guardar diagnóstico:", e);
-      setMensaje({ error: "Error al guardar diagnóstico." });
     }
   };
 
-  // Editar diagnóstico
-  const editDiagnostico = (d: DiagnosticoData & { _key: string }) => {
-    setDiagnostico(d);
-    setEditingKey(d._key);
-    setShowForm(true);
-    setFormErrors({});
-    setExpandedBlocks({
-      bloque1: true,
-      bloque2: false,
-      bloque3: false,
-      bloque4: false,
-      bloque5: false,
-      bloque6: false,
-      bloque7: false,
-      bloque8: false,
-      bloque9: false,
-    });
+  const deleteDiagnostico = (key: string) => {
+    setMensaje({}); // Clear messages
+    if (window.confirm("¿Estás seguro de que quieres eliminar este diagnóstico?")) {
+      const updatedList = diagnosticosList.filter((diag) => diag.createdAt !== key);
+      setDiagnosticosList(updatedList);
+      handleSaveToLocalStorage(updatedList);
+      setMensaje({ success: "Diagnóstico eliminado correctamente." });
+      if (selectedDiagnostico?.createdAt === key) {
+        setSelectedDiagnostico(null);
+      }
+      if (editingKey === key) {
+        setEditingKey(null);
+        setDiagnostico(initialDiagnostico);
+      }
+      setShowForm(false); // Go back to showing the list after deletion
+      setAnalisis(null); // Clear analysis
+    }
   };
 
-  // Eliminar diagnóstico
-  const deleteDiagnostico = async (Key: string) => {
-    if (!confirm("¿Estás seguro de eliminar este diagnóstico?")) return;
+  const viewDiagnostico = (diag: DiagnosticoData) => {
+    setSelectedDiagnostico(diag);
+    setAnalisis(diag.analysisResult || null); // Load analysis if it exists
+    setShowForm(false);
+    setEditingKey(null);
+    setMensaje({}); // Clear messages
+  };
+
+  // Function to generate PDF (Client-side with html2canvas and jspdf)
+  const generatePdfReport = async () => {
+    if (!analysisReportRef.current) {
+      setMensaje({ error: "No se pudo generar el PDF. El contenido de análisis no está visible." });
+      return;
+    }
+    if (!analisis) {
+      setMensaje({ error: "No hay un análisis disponible para generar el PDF." });
+      return;
+    }
+
+    setIsLoading(true);
+    setMensaje({});
+
     try {
-      await s3.send(new DeleteObjectCommand({ Bucket: process.env.NEXT_PUBLIC_S3_BUCKET!, Key }));
-      setDiagnosticos((prev) => {
-        const updatedDiagnosticos = prev.filter((d) => d._key !== Key);
-        if (selectedDiagnostico?._key === Key) {
-          setSelectedDiagnostico(updatedDiagnosticos.length > 0 ? updatedDiagnosticos[0] : null);
-        }
-        return updatedDiagnosticos;
+      const input = analysisReportRef.current;
+      const canvas = await html2canvas(input, {
+        scale: 2, // Increase scale for better resolution
+        useCORS: true, // If you have images from other origins (e.g., if you display images from external URLs)
+        logging: true, // Enable logging for debugging
+        allowTaint: true, // Allow images from other origins to be drawn on the canvas
       });
-      setMensaje({ success: "Diagnóstico eliminado." });
-    } catch (e) {
-      console.error("Error al eliminar diagnóstico:", e);
-      setMensaje({ error: "No se pudo eliminar el diagnóstico." });
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4"); // 'p' for portrait, 'mm' for millimeters, 'a4' size
+      const imgWidth = 210; // A4 width in mm
+      const pageHeight = 297; // A4 height in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft >= 0) {
+        position = heightLeft - pageHeight; // Corrected position calculation for subsequent pages
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      pdf.save(`Reporte_Diagnostico_Empresarial_${selectedDiagnostico?.nombreEmpresa || 'TuNegocio'}.pdf`);
+      setMensaje({ success: "Reporte PDF generado exitosamente." });
+    } catch (error: any) {
+      console.error("Error generating PDF:", error);
+      setMensaje({ error: `Error al generar el PDF: ${error.message || 'Inténtalo de nuevo.'}` });
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Manejar cambio en checkboxes para lugares de venta
-  const handleLugaresVentaChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const { value, checked } = e.target;
-    setDiagnostico((prev) => {
-      let newLugaresVenta = [...prev.lugaresVenta];
-      if (checked) {
-        if (newLugaresVenta.length < 2) {
-          newLugaresVenta.push(value);
-        }
-      } else {
-        newLugaresVenta = newLugaresVenta.filter((lugar) => lugar !== value);
-      }
-      return { ...prev, lugaresVenta: newLugaresVenta };
-    });
-    setFormErrors((prev) => {
-      const newErrors = { ...prev };
-      if (checked && newLugaresVenta.length > 0) {
-        delete newErrors.lugaresVenta;
-      }
-      return newErrors;
-    });
+  // Helper to get traffic light color
+  const getTrafficLightColor = (status: "verde" | "amarillo" | "rojo" | undefined) => {
+    switch (status) {
+      case "verde":
+        return "bg-green-500";
+      case "amarillo":
+        return "bg-yellow-500";
+      case "rojo":
+        return "bg-red-500";
+      default:
+        return "bg-gray-400"; // Default color if status is undefined or unexpected
+    }
   };
 
-  // Alternar bloques expandidos
-  const toggleBlock = (block: string) => {
-    setExpandedBlocks((prev) => ({
-      ...prev,
-      [block]: !prev[block],
-    }));
+  // Helper to get traffic light text
+  const getTrafficLightText = (status: "verde" | "amarillo" | "rojo" | undefined) => {
+    switch (status) {
+      case "verde":
+        return "Óptimo";
+      case "amarillo":
+        return "Atención";
+      case "rojo":
+        return "Crítico";
+      default:
+        return "N/A"; // Default text if status is undefined or unexpected
+    }
+  };
+
+  // Map for semaforo_riesgo areas to display names and icons
+  const semaforoAreasMap = {
+    estrategia: { name: "Estrategia", icon: <LightBulbIcon className="h-5 w-5 mr-2 text-blue-700" /> },
+    finanzas: { name: "Finanzas", icon: <ChartBarIcon className="h-5 w-5 mr-2 text-green-700" /> },
+    marketing: { name: "Marketing", icon: <MegaphoneIcon className="h-5 w-5 mr-2 text-purple-700" /> },
+    operaciones: { name: "Operaciones", icon: <Cog6ToothIcon className="h-5 w-5 mr-2 text-indigo-700" /> },
+    tecnologia: { name: "Tecnología", icon: <ComputerDesktopIcon className="h-5 w-5 mr-2 text-gray-700" /> },
+    legal: { name: "Legal", icon: <ShieldCheckIcon className="h-5 w-5 mr-2 text-yellow-700" /> },
+    recursos_humanos: { name: "Recursos Humanos", icon: <UsersIcon className="h-5 w-5 mr-2 text-red-700" /> },
   };
 
   return (
     <PrivateLayout>
-      <div className="container mx-auto px-4 py-8 bg-gray-100 min-h-screen">
-        <h1 className="text-4xl font-bold text-blue-900 mb-2">Diagnóstico Empresarial</h1>
-        <div className="flex justify-between items-center mb-8">
-          <h2 className="text-2xl font-semibold text-gray-800">Tus Diagnósticos</h2>
-          <button
-            onClick={() => {
-              setShowForm((v) => !v);
-              if (showForm) {
-                setEditingKey(null);
-                setDiagnostico(initialDiagnostico);
-                setFormErrors({});
-                setExpandedBlocks({
-                  bloque1: true,
-                  bloque2: false,
-                  bloque3: false,
-                  bloque4: false,
-                  bloque5: false,
-                  bloque6: false,
-                  bloque7: false,
-                  bloque8: false,
-                  bloque9: false,
-                });
-              }
-            }}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition duration-300"
+      <div className="container mx-auto px-4 py-10 bg-gray-100 min-h-screen animate__animated animate__fadeIn">
+        <h1 className="text-4xl font-bold text-blue-900 mb-6 text-center">
+          Diagnóstico Empresarial Completo
+        </h1>
+        <p className="text-center text-gray-600 mb-10 max-w-2xl mx-auto">
+          Responde estas preguntas detalladas para obtener un análisis integral
+          de las áreas clave de tu negocio. Al finalizar, recibirás un reporte
+          personalizado y la opción de descargarlo en PDF.
+        </p>
+
+        {mensaje.error && (
+          <div
+            className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4 max-w-4xl mx-auto flex items-center"
+            role="alert"
           >
-            {showForm ? "Cancelar" : "Nuevo Diagnóstico"}
-          </button>
-        </div>
+            <XCircleIcon className="h-5 w-5 mr-2" />
+            <strong className="font-bold mr-1">Error:</strong>
+            <span className="block sm:inline"> {mensaje.error}</span>
+          </div>
+        )}
+        {mensaje.success && (
+          <div
+            className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4 max-w-4xl mx-auto flex items-center"
+            role="alert"
+          >
+            <CheckCircleIcon className="h-5 w-5 mr-2" />
+            <strong className="font-bold mr-1">Éxito:</strong>
+            <span className="block sm:inline"> {mensaje.success}</span>
+          </div>
+        )}
 
-        {mensaje.error && <p className="text-red-500 text-center mt-4">{mensaje.error}</p>}
-        {mensaje.success && <p className="text-green-500 text-center mt-4">{mensaje.success}</p>}
+        {/* Diagnostic List View */}
+        {!showForm && !selectedDiagnostico && (
+          <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-200 animate__animated animate__fadeIn">
+            <h2 className="text-3xl font-bold mb-6 text-center text-gray-800">
+              Tus Diagnósticos Anteriores
+            </h2>
+            {diagnosticosList.length === 0 ? (
+              <p className="text-gray-600 text-center">
+                Aún no tienes diagnósticos guardados. ¡Empieza uno nuevo!
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full bg-white rounded-lg overflow-hidden shadow">
+                  <thead className="bg-blue-50">
+                    <tr>
+                      <th className="py-3 px-6 text-left text-sm font-medium text-blue-800 uppercase tracking-wider">
+                        Fecha
+                      </th>
+                      <th className="py-3 px-6 text-left text-sm font-medium text-blue-800 uppercase tracking-wider">
+                        Nombre
+                      </th>
+                      <th className="py-3 px-6 text-left text-sm font-medium text-blue-800 uppercase tracking-wider">
+                        Empresa
+                      </th>
+                      <th className="py-3 px-6 text-center text-sm font-medium text-blue-800 uppercase tracking-wider">
+                        Acciones
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {diagnosticosList.map((diag) => (
+                      <tr key={diag.createdAt} className="hover:bg-gray-50">
+                        <td className="py-4 px-6 text-gray-700">
+                          {new Date(diag.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="py-4 px-6 text-gray-700">
+                          {diag.nombreCompleto}
+                        </td>
+                        <td className="py-4 px-6 text-gray-700">
+                          {diag.nombreEmpresa}
+                        </td>
+                        <td className="py-4 px-6 text-center flex justify-center space-x-2">
+                          <button
+                            onClick={() => viewDiagnostico(diag)}
+                            className="text-blue-600 hover:text-blue-900 font-medium p-2 rounded-md bg-blue-50 hover:bg-blue-100 transition duration-200"
+                            title="Ver Diagnóstico"
+                          >
+                            <BookOpenIcon className="h-5 w-5" />
+                          </button>
+                          <button
+                            onClick={() => editDiagnostico(diag.createdAt)}
+                            className="text-yellow-600 hover:text-yellow-900 font-medium p-2 rounded-md bg-yellow-50 hover:bg-yellow-100 transition duration-200"
+                            title="Editar Diagnóstico"
+                          >
+                            <PencilSquareIcon className="h-5 w-5" />
+                          </button>
+                          <button
+                            onClick={() => deleteDiagnostico(diag.createdAt)}
+                            className="text-red-600 hover:text-red-900 font-medium p-2 rounded-md bg-red-50 hover:bg-red-100 transition duration-200"
+                            title="Eliminar Diagnóstico"
+                          >
+                            <TrashIcon className="h-5 w-5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div className="flex justify-center mt-6">
+              <button
+                onClick={() => {
+                  setShowForm(true);
+                  setDiagnostico(initialDiagnostico);
+                  setEditingKey(null);
+                  setAnalisis(null);
+                  setMensaje({});
+                  setExpandedBlocks({
+                    // Reset expanded blocks for new form
+                    bloque1: true,
+                    bloque2: false,
+                    bloque3: false,
+                    bloque4: false,
+                    bloque5: false,
+                    bloque6: false,
+                    bloque7: false,
+                    bloque8: false,
+                    bloque9: false,
+                  });
+                }}
+                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition duration-300 shadow-md flex items-center"
+              >
+                <PlusCircleIcon className="h-5 w-5 mr-2" /> Crear Nuevo Diagnóstico
+              </button>
+            </div>
+          </div>
+        )}
 
-        {/* Lista de diagnósticos */}
-        <div className="mb-8">
-          {diagnosticos.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {diagnosticos.map((d) => (
-                <div
-                  key={d._key}
-                  className="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl transition duration-300 animate__animated animate__fadeIn"
-                  onClick={() => setSelectedDiagnostico(d)}
-                >
-                  <h3 className="text-xl font-bold text-gray-800 mb-2">Diagnóstico {d.createdAt}</h3>
-                  <p className="text-gray-600 mb-4">Nombre: {d.nombreCompleto}</p>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        editDiagnostico(d);
-                      }}
-                      className="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600 transition duration-300"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteDiagnostico(d._key);
-                      }}
-                      className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition duration-300"
-                    >
-                      Eliminar
-                    </button>
+        {/* Detailed Diagnostic View (after selecting from list) */}
+        {!showForm && selectedDiagnostico && (
+          <div className="bg-white p-8 rounded-xl shadow-lg max-w-4xl mx-auto border border-gray-200 animate__animated animate__fadeIn">
+            <button
+              onClick={() => {
+                setSelectedDiagnostico(null); // Go back to list view
+                setAnalisis(null); // Clear analysis when going back
+                setMensaje({});
+              }}
+              className="text-blue-600 hover:text-blue-800 mb-4 flex items-center"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+              Volver a la lista de diagnósticos
+            </button>
+
+            <h2 className="text-3xl font-bold mb-6 text-center text-gray-800">
+              Detalles del Diagnóstico de {selectedDiagnostico.nombreEmpresa}
+            </h2>
+            <p className="text-gray-600 text-center mb-4">
+              Fecha: {new Date(selectedDiagnostico.createdAt).toLocaleDateString()}
+            </p>
+
+            <div className="space-y-4">
+              {/* Display basic info */}
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h3 className="text-xl font-semibold text-blue-900 mb-2">Información General</h3>
+                <p><strong>Nombre Completo:</strong> {selectedDiagnostico.nombreCompleto}</p>
+                <p><strong>Nombre Empresa:</strong> {selectedDiagnostico.nombreEmpresa}</p>
+                <p><strong>Tipo de Negocio:</strong> {selectedDiagnostico.tipoNegocio}</p>
+                <p><strong>Tiempo de Operación:</strong> {selectedDiagnostico.tiempoOperacion}</p>
+              </div>
+
+              {/* Display all other diagnostic questions and answers dynamically */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="text-xl font-semibold text-gray-800 mb-2">Respuestas Detalladas</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {Object.entries(selectedDiagnostico).map(([key, value]) => {
+                    // Exclude properties that are already displayed or not questions
+                    if (
+                      ["userId", "nombreCompleto", "nombreEmpresa", "tipoNegocio", "tiempoOperacion", "createdAt", "analysisResult"].includes(key)
+                    ) {
+                      return null;
+                    }
+                    const formattedKey = key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').trim(); // Formats camelCase and snake_case
+                    return (
+                      <div key={key} className="mb-2">
+                        <p className="font-semibold text-gray-700">
+                          {formattedKey.charAt(0).toUpperCase() + formattedKey.slice(1)}:
+                        </p>
+                        <p className="text-gray-600">{value}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Analysis Report Section (Conditional Rendering and Error Handling) */}
+            {isLoading ? (
+              <div className="text-center mt-8 p-4 bg-blue-50 rounded-lg shadow-inner">
+                <p className="text-blue-700 animate-pulse">Analizando diagnóstico con IA...</p>
+              </div>
+            ) : analisis ? (
+              <div ref={analysisReportRef} className="mt-8 p-6 bg-blue-50 rounded-xl shadow-lg border border-blue-200">
+                <h3 className="text-3xl font-bold text-blue-800 mb-6 text-center">
+                  Análisis Detallado del Diagnóstico
+                </h3>
+
+                <div className="mb-8">
+                  <h4 className="text-2xl font-semibold text-gray-800 mb-3 flex items-center">
+                    <BookOpenIcon className="h-6 w-6 mr-2 text-blue-600" /> Resumen Ejecutivo
+                  </h4>
+                  <p className="text-gray-700 leading-relaxed bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                    {analisis.resumen_ejecutivo}
+                  </p>
+                </div>
+
+                <div className="mb-8">
+                  <h4 className="text-2xl font-semibold text-gray-800 mb-3 flex items-center">
+                    <ExclamationCircleIcon className="h-6 w-6 mr-2 text-orange-600" /> Semáforo de Riesgo por Área
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {Object.entries(analisis.semaforo_riesgo || defaultSemaforoRiesgo).map(([key, status]) => {
+                      const areaInfo = semaforoAreasMap[key as keyof typeof semaforoAreasMap];
+                      if (!areaInfo) return null; // Skip if area not defined in map
+
+                      return (
+                        <div key={key} className={`p-4 rounded-lg shadow-md flex items-center justify-between transition-all duration-300 ${getTrafficLightColor(status)}`}>
+                          <div className="flex items-center">
+                            {areaInfo.icon}
+                            <span className="font-semibold text-white text-lg">
+                              {areaInfo.name}
+                            </span>
+                          </div>
+                          <span className="text-white font-bold text-lg">
+                            {getTrafficLightText(status)}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              ))}
+
+                <div className="mb-8">
+                  <h4 className="text-2xl font-semibold text-gray-800 mb-3 flex items-center">
+                    <CheckCircleIcon className="h-6 w-6 mr-2 text-green-600" /> Fortalezas
+                  </h4>
+                  <ul className="list-disc list-inside text-gray-700 bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                    {analisis.fortalezas.length > 0 ? (
+                      analisis.fortalezas.map((fortaleza, index) => (
+                        <li key={index} className="mb-1">{fortaleza}</li>
+                      ))
+                    ) : (
+                      <li>No se identificaron fortalezas específicas.</li>
+                    )}
+                  </ul>
+                </div>
+
+                {/* Continued from the user's provided code */}
+                <div className="mb-8">
+                  <h4 className="text-2xl font-semibold text-gray-800 mb-3 flex items-center">
+                    <LightBulbIcon className="h-6 w-6 mr-2 text-yellow-600" /> Áreas de Oportunidad
+                  </h4>
+                  <ul className="list-disc list-inside text-gray-700 bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                    {analisis.areas_oportunidad.length > 0 ? (
+                      analisis.areas_oportunidad.map((oportunidad, index) => (
+                        <li key={index} className="mb-1">{oportunidad}</li>
+                      ))
+                    ) : (
+                      <li>No se identificaron áreas de oportunidad específicas.</li>
+                    )}
+                  </ul>
+                </div>
+
+                <div className="mb-8">
+                  <h4 className="text-2xl font-semibold text-gray-800 mb-3 flex items-center">
+                    <BookOpenIcon className="h-6 w-6 mr-2 text-purple-600" /> Recomendaciones
+                  </h4>
+                  <ul className="list-disc list-inside text-gray-700 bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                    {analisis.recomendaciones.length > 0 ? (
+                      analisis.recomendaciones.map((recomendacion, index) => (
+                        <li key={index} className="mb-1">{recomendacion}</li>
+                      ))
+                    ) : (
+                      <li>No se generaron recomendaciones específicas.</li>
+                    )}
+                  </ul>
+                </div>
+
+                <div className="mb-8 text-center">
+                  <h4 className="text-2xl font-semibold text-gray-800 mb-3 flex items-center justify-center">
+                    <ScaleIcon className="h-6 w-6 mr-2 text-blue-600" /> Score Global del Negocio
+                  </h4>
+                  <div className="text-5xl font-bold text-blue-700 p-4 bg-blue-100 rounded-full inline-block min-w-[120px] shadow-lg">
+                    {analisis.score_global}
+                    <span className="text-xl">%</span>
+                  </div>
+                  <p className="text-gray-600 mt-2">
+                    Este score representa la salud general de tu negocio basado en el análisis.
+                  </p>
+                </div>
+
+                <div className="flex justify-center mt-8">
+                  <button
+                    onClick={generatePdfReport}
+                    className="bg-red-600 text-white px-8 py-3 rounded-lg hover:bg-red-700 transition duration-300 shadow-md flex items-center"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Generando PDF...
+                      </>
+                    ) : (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l3-3m-3 3l-3-3m0 2H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2h-2M5 21h14a2 2 0 002-2V8l-7-7H5a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                        Descargar Reporte en PDF
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center mt-8 p-4 bg-yellow-50 rounded-lg shadow-inner">
+                <p className="text-yellow-700">No hay análisis disponible para este diagnóstico. Edita el diagnóstico y envíalo para generar el análisis.</p>
+              </div>
+            )}
+
+            {/* Edit and Delete buttons for the current selected diagnostic */}
+            <div className="flex justify-center space-x-4 mt-8">
+              <button
+                onClick={() => selectedDiagnostico && editDiagnostico(selectedDiagnostico.createdAt)}
+                className="bg-yellow-500 text-white px-6 py-3 rounded-lg hover:bg-yellow-600 transition duration-300 shadow-md flex items-center"
+              >
+                <PencilSquareIcon className="h-5 w-5 mr-2" /> Editar Diagnóstico
+              </button>
+              <button
+                onClick={() => selectedDiagnostico && deleteDiagnostico(selectedDiagnostico.createdAt)}
+                className="bg-red-500 text-white px-6 py-3 rounded-lg hover:bg-red-600 transition duration-300 shadow-md flex items-center"
+              >
+                <TrashIcon className="h-5 w-5 mr-2" /> Eliminar Diagnóstico
+              </button>
             </div>
-          ) : (
-            <p className="text-gray-600 text-center">No tienes diagnósticos guardados.</p>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* Formulario de diagnóstico */}
+        {/* Diagnostic Form View */}
         {showForm && (
-          <div className="bg-white p-8 rounded-xl shadow-lg mb-12 border border-gray-200 animate__animated animate__fadeIn">
-            <h2 className="text-3xl font-bold mb-6 text-center text-gray-800">
-              {editingKey ? "Editar Diagnóstico" : "Nuevo Diagnóstico Empresarial"}
-            </h2>
-
-            {/* Bloque 1: Datos del Empresario */}
-            <div className="mb-4">
-              <div
-                className="flex justify-between items-center p-4 bg-blue-50 rounded-lg cursor-pointer"
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              submitDiagnostico();
+            }}
+            className="bg-white p-8 rounded-xl shadow-lg border border-gray-200 max-w-4xl mx-auto animate__animated animate__fadeIn"
+          >
+            {/* Bloque 1: Información General del Solicitante y Empresa */}
+            <div
+              className={`mb-8 p-6 border rounded-lg transition-all duration-300 ease-in-out ${expandedBlocks.bloque1 ? "border-blue-300 bg-blue-50 shadow-md" : "border-gray-200 bg-white"
+                }`}
+            >
+              <h3
+                className="text-2xl font-bold text-blue-700 mb-4 cursor-pointer flex items-center justify-between"
                 onClick={() => toggleBlock("bloque1")}
               >
-                <h3 className="text-xl font-semibold text-blue-900">Bloque 1: Datos del Empresario</h3>
+                Información General
                 <svg
-                  className={`w-6 h-6 transform transition-transform duration-300 ${
-                    expandedBlocks.bloque1 ? "rotate-180" : "rotate-0"
-                  }`}
+                  className={`h-6 w-6 text-blue-700 transition-transform duration-300 ${expandedBlocks.bloque1 ? "rotate-90" : ""
+                    }`}
                   fill="none"
-                  stroke="currentColor"
                   viewBox="0 0 24 24"
+                  stroke="currentColor"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
                 </svg>
-              </div>
+              </h3>
               {expandedBlocks.bloque1 && (
-                <div className="p-4 bg-gray-50 rounded-lg mt-2 animate__animated animate__fadeIn">
-                  <div className="mb-4">
-                    <label className="block mb-2 text-gray-600 font-medium">
-                      1. ¿Cuál es tu nombre completo, edad y ciudad/estado de residencia? *
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate__animated animate__fadeInDown animate__faster">
+                  <div className="form-group">
+                    <label
+                      htmlFor="nombreCompleto"
+                      className="block text-gray-700 text-sm font-semibold mb-2"
+                    >
+                      Nombre Completo
                     </label>
                     <input
+                      type="text"
+                      id="nombreCompleto"
                       name="nombreCompleto"
                       value={diagnostico.nombreCompleto}
                       onChange={handleChange}
-                      className={`w-full border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        formErrors.nombreCompleto ? "border-red-500" : "border-gray-300"
-                      }`}
-                      placeholder="Nombre completo"
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${formErrors.nombreCompleto ? "border-red-500" : "border-gray-300"
+                        }`}
+                      placeholder="Tu nombre completo"
                     />
                     {formErrors.nombreCompleto && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.nombreCompleto}</p>
-                    )}
-                    <input
-                      name="edad"
-                      value={diagnostico.edad}
-                      onChange={handleChange}
-                      className={`w-full border rounded-lg p-2 mt-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        formErrors.edad ? "border-red-500" : "border-gray-300"
-                      }`}
-                      placeholder="Edad"
-                    />
-                    {formErrors.edad && <p className="text-red-500 text-sm mt-1">{formErrors.edad}</p>}
-                    <input
-                      name="ciudadEstado"
-                      value={diagnostico.ciudadEstado}
-                      onChange={handleChange}
-                      className={`w-full border rounded-lg p-2 mt-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        formErrors.ciudadEstado ? "border-red-500" : "border-gray-300"
-                      }`}
-                      placeholder="Ciudad/Estado"
-                    />
-                    {formErrors.ciudadEstado && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.ciudadEstado}</p>
+                      <p className="text-red-500 text-xs mt-1">
+                        {formErrors.nombreCompleto}
+                      </p>
                     )}
                   </div>
-                  <div className="mb-4">
-                    <label className="block mb-2 text-gray-600 font-medium">
-                      2. ¿Cuál es tu último grado de estudios y experiencia previa como emprendedor? *
+                  <div className="form-group">
+                    <label
+                      htmlFor="nombreEmpresa"
+                      className="block text-gray-700 text-sm font-semibold mb-2"
+                    >
+                      Nombre de la Empresa
                     </label>
-                    <div className="space-y-2">
-                      {["Primaria", "Secundaria", "Preparatoria", "Técnica", "Licenciatura", "Posgrado"].map(
-                        (grado) => (
-                          <label key={grado} className="flex items-center">
-                            <input
-                              type="radio"
-                              name="ultimoGradoEstudios"
-                              value={grado}
-                              checked={diagnostico.ultimoGradoEstudios === grado}
-                              onChange={handleChange}
-                              className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                            />
-                            <span className="text-gray-600">{grado}</span>
-                          </label>
-                        )
-                      )}
-                    </div>
-                    {formErrors.ultimoGradoEstudios && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.ultimoGradoEstudios}</p>
-                    )}
-                    <div className="space-y-2 mt-4">
-                      {["Nunca he emprendido", "He tenido uno o más negocios antes"].map((exp) => (
-                        <label key={exp} className="flex items-center">
-                          <input
-                            type="radio"
-                            name="experienciaEmprendedor"
-                            value={exp}
-                            checked={diagnostico.experienciaEmprendedor === exp}
-                            onChange={handleChange}
-                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                          />
-                          <span className="text-gray-600">{exp}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {formErrors.experienciaEmprendedor && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.experienciaEmprendedor}</p>
+                    <input
+                      type="text"
+                      id="nombreEmpresa"
+                      name="nombreEmpresa"
+                      value={diagnostico.nombreEmpresa}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${formErrors.nombreEmpresa ? "border-red-500" : "border-gray-300"
+                        }`}
+                      placeholder="Nombre de tu empresa"
+                    />
+                    {formErrors.nombreEmpresa && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {formErrors.nombreEmpresa}
+                      </p>
                     )}
                   </div>
-                  <div className="mb-4">
-                    <label className="block mb-2 text-gray-600 font-medium">
-                      3. ¿Tu empresa es tu principal fuente de ingresos? *
+                  <div className="form-group">
+                    <label
+                      htmlFor="tipoNegocio"
+                      className="block text-gray-700 text-sm font-semibold mb-2"
+                    >
+                      Tipo de Negocio
                     </label>
-                    <div className="space-y-2">
-                      {["Sí", "No", "Parcialmente"].map((ingreso) => (
-                        <label key={ingreso} className="flex items-center">
-                          <input
-                            type="radio"
-                            name="esPrincipalIngreso"
-                            value={ingreso}
-                            checked={diagnostico.esPrincipalIngreso === ingreso}
-                            onChange={handleChange}
-                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                          />
-                          <span className="text-gray-600">{ingreso}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {formErrors.esPrincipalIngreso && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.esPrincipalIngreso}</p>
+                    <select
+                      id="tipoNegocio"
+                      name="tipoNegocio"
+                      value={diagnostico.tipoNegocio}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${formErrors.tipoNegocio ? "border-red-500" : "border-gray-300"
+                        }`}
+                    >
+                      <option value="">Selecciona una opción</option>
+                      <option value="Servicios">Servicios</option>
+                      <option value="Productos">Productos</option>
+                      <option value="Comercio">Comercio</option>
+                      <option value="Manufactura">Manufactura</option>
+                      <option value="Tecnología">Tecnología</option>
+                      <option value="Otro">Otro</option>
+                    </select>
+                    {formErrors.tipoNegocio && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {formErrors.tipoNegocio}
+                      </p>
+                    )}
+                  </div>
+                  <div className="form-group">
+                    <label
+                      htmlFor="tiempoOperacion"
+                      className="block text-gray-700 text-sm font-semibold mb-2"
+                    >
+                      Tiempo de Operación de la Empresa
+                    </label>
+                    <select
+                      id="tiempoOperacion"
+                      name="tiempoOperacion"
+                      value={diagnostico.tiempoOperacion}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${formErrors.tiempoOperacion ? "border-red-500" : "border-gray-300"
+                        }`}
+                    >
+                      <option value="">Selecciona una opción</option>
+                      <option value="Menos de 1 año">Menos de 1 año</option>
+                      <option value="1-3 años">1-3 años</option>
+                      <option value="3-5 años">3-5 años</option>
+                      <option value="Más de 5 años">Más de 5 años</option>
+                    </select>
+                    {formErrors.tiempoOperacion && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {formErrors.tiempoOperacion}
+                      </p>
                     )}
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Bloque 2: Perfil del Negocio */}
-            <div className="mb-4">
-              <div
-                className="flex justify-between items-center p-4 bg-blue-50 rounded-lg cursor-pointer"
+            {/* Bloque 2: Finanzas */}
+            <div
+              className={`mb-8 p-6 border rounded-lg transition-all duration-300 ease-in-out ${expandedBlocks.bloque2 ? "border-blue-300 bg-blue-50 shadow-md" : "border-gray-200 bg-white"
+                }`}
+            >
+              <h3
+                className="text-2xl font-bold text-blue-700 mb-4 cursor-pointer flex items-center justify-between"
                 onClick={() => toggleBlock("bloque2")}
               >
-                <h3 className="text-xl font-semibold text-blue-900">Bloque 2: Perfil del Negocio</h3>
+                Finanzas
                 <svg
-                  className={`w-6 h-6 transform transition-transform duration-300 ${
-                    expandedBlocks.bloque2 ? "rotate-180" : "rotate-0"
-                  }`}
+                  className={`h-6 w-6 text-blue-700 transition-transform duration-300 ${expandedBlocks.bloque2 ? "rotate-90" : ""
+                    }`}
                   fill="none"
-                  stroke="currentColor"
                   viewBox="0 0 24 24"
+                  stroke="currentColor"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
                 </svg>
-              </div>
+              </h3>
               {expandedBlocks.bloque2 && (
-                <div className="p-4 bg-gray-50 rounded-lg mt-2 animate__animated animate__fadeIn">
-                  <div className="mb-4">
-                    <label className="block mb-2 text-gray-600 font-medium">
-                      4. ¿En qué etapa se encuentra actualmente tu negocio? *
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate__animated animate__fadeInDown animate__faster">
+                  <div className="form-group">
+                    <label
+                      htmlFor="facturacionAnual"
+                      className="block text-gray-700 text-sm font-semibold mb-2"
+                    >
+                      Facturación Anual Aproximada
                     </label>
-                    <div className="space-y-2">
-                      {[
-                        "Idea en desarrollo",
-                        "Validación / prototipo",
-                        "En operación inicial (menos de 1 año)",
-                        "Establecido (1-3 años)",
-                        "Consolidado (más de 3 años)",
-                      ].map((etapa) => (
-                        <label key={etapa} className="flex items-center">
-                          <input
-                            type="radio"
-                            name="etapaNegocio"
-                            value={etapa}
-                            checked={diagnostico.etapaNegocio === etapa}
-                            onChange={handleChange}
-                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                          />
-                          <span className="text-gray-600">{etapa}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {formErrors.etapaNegocio && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.etapaNegocio}</p>
-                    )}
-                  </div>
-                  <div className="mb-4">
-                    <label className="block mb-2 text-gray-600 font-medium">
-                      5. ¿Cuál es el giro y tipo de actividad principal del negocio? *
-                    </label>
-                    <div className="space-y-2">
-                      {[
-                        "Comercialización",
-                        "Servicios",
-                        "Producción / manufactura",
-                        "Tecnología / digital",
-                        "Agroindustria",
-                        "Otro",
-                      ].map((giro) => (
-                        <label key={giro} className="flex items-center">
-                          <input
-                            type="radio"
-                            name="giroActividad"
-                            value={giro}
-                            checked={diagnostico.giroActividad === giro}
-                            onChange={handleChange}
-                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                          />
-                          <span className="text-gray-600">{giro}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {formErrors.giroActividad && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.giroActividad}</p>
-                    )}
-                    {diagnostico.giroActividad === "Otro" && (
-                      <input
-                        name="giroActividadOtro"
-                        value={diagnostico.giroActividadOtro}
-                        onChange={handleChange}
-                        className={`w-full border rounded-lg p-2 mt-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          formErrors.giroActividadOtro ? "border-red-500" : "border-gray-300"
+                    <select
+                      id="facturacionAnual"
+                      name="facturacionAnual"
+                      value={diagnostico.facturacionAnual}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${formErrors.facturacionAnual ? "border-red-500" : "border-gray-300"
                         }`}
-                        placeholder="Especifique el giro"
-                      />
-                    )}
-                    {formErrors.giroActividadOtro && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.giroActividadOtro}</p>
+                    >
+                      <option value="">Selecciona una opción</option>
+                      <option value="Menos de $500,000 MXN">
+                        Menos de $500,000 MXN
+                      </option>
+                      <option value="$500,000 - $2,000,000 MXN">
+                        $500,000 - $2,000,000 MXN
+                      </option>
+                      <option value="$2,000,000 - $5,000,000 MXN">
+                        $2,000,000 - $5,000,000 MXN
+                      </option>
+                      <option value="Más de $5,000,000 MXN">
+                        Más de $5,000,000 MXN
+                      </option>
+                    </select>
+                    {formErrors.facturacionAnual && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {formErrors.facturacionAnual}
+                      </p>
                     )}
                   </div>
-                  <div className="mb-4">
-                    <label className="block mb-2 text-gray-600 font-medium">
-                      6. ¿A qué industria pertenece principalmente tu negocio? *
+                  <div className="form-group">
+                    <label
+                      htmlFor="situacionFinanciera"
+                      className="block text-gray-700 text-sm font-semibold mb-2"
+                    >
+                      Situación Financiera Actual de la Empresa
                     </label>
-                    <div className="space-y-2">
-                      {[
-                        "Salud",
-                        "Moda",
-                        "Alimentos",
-                        "Construcción",
-                        "Educación",
-                        "Tecnología",
-                        "Turismo",
-                        "Otro",
-                      ].map((industria) => (
-                        <label key={industria} className="flex items-center">
-                          <input
-                            type="radio"
-                            name="industriaNegocio"
-                            value={industria}
-                            checked={diagnostico.industriaNegocio === industria}
-                            onChange={handleChange}
-                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                          />
-                          <span className="text-gray-600">{industria}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {formErrors.industriaNegocio && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.industriaNegocio}</p>
-                    )}
-                    {diagnostico.industriaNegocio === "Otro" && (
-                      <input
-                        name="industriaNegocioOtro"
-                        value={diagnostico.industriaNegocioOtro}
-                        onChange={handleChange}
-                        className={`w-full border rounded-lg p-2 mt-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          formErrors.industriaNegocioOtro ? "border-red-500" : "border-gray-300"
+                    <select
+                      id="situacionFinanciera"
+                      name="situacionFinanciera"
+                      value={diagnostico.situacionFinanciera}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${formErrors.situacionFinanciera ? "border-red-500" : "border-gray-300"
                         }`}
-                        placeholder="Especifique la industria"
-                      />
-                    )}
-                    {formErrors.industriaNegocioOtro && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.industriaNegocioOtro}</p>
-                    )}
-                  </div>
-                  <div className="mb-4">
-                    <label className="block mb-2 text-gray-600 font-medium">
-                      7. ¿Cómo está legalmente constituido tu negocio? *
-                    </label>
-                    <div className="space-y-2">
-                      {[
-                        "Persona física",
-                        "Persona moral",
-                        "Asociación o cooperativa",
-                        "No está formalizado",
-                        "En proceso de formalización",
-                      ].map((legal) => (
-                        <label key={legal} className="flex items-center">
-                          <input
-                            type="radio"
-                            name="constituciónLegal"
-                            value={legal}
-                            checked={diagnostico.constituciónLegal === legal}
-                            onChange={handleChange}
-                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                          />
-                          <span className="text-gray-600">{legal}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {formErrors.constituciónLegal && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.constituciónLegal}</p>
+                    >
+                      <option value="">Selecciona una opción</option>
+                      <option value="Rentable y creciendo">
+                        Rentable y creciendo
+                      </option>
+                      <option value="Estable pero sin crecimiento">
+                        Estable pero sin crecimiento
+                      </option>
+                      <option value="Con dificultades pero operando">
+                        Con dificultades pero operando
+                      </option>
+                      <option value="En crisis o con pérdidas constantes">
+                        En crisis o con pérdidas constantes
+                      </option>
+                    </select>
+                    {formErrors.situacionFinanciera && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {formErrors.situacionFinanciera}
+                      </p>
                     )}
                   </div>
-                  <div className="mb-4">
-                    <label className="block mb-2 text-gray-600 font-medium">
-                      8. ¿Cuál es tu modelo de negocio predominante? *
+                  <div className="form-group">
+                    <label
+                      htmlFor="accesoFinanciamiento"
+                      className="block text-gray-700 text-sm font-semibold mb-2"
+                    >
+                      Acceso a Financiamiento Externo
                     </label>
-                    <div className="space-y-2">
-                      {["B2C", "B2B", "B2G", "Mixto"].map((modelo) => (
-                        <label key={modelo} className="flex items-center">
-                          <input
-                            type="radio"
-                            name="modeloNegocio"
-                            value={modelo}
-                            checked={diagnostico.modeloNegocio === modelo}
-                            onChange={handleChange}
-                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                          />
-                          <span className="text-gray-600">{modelo}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {formErrors.modeloNegocio && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.modeloNegocio}</p>
+                    <select
+                      id="accesoFinanciamiento"
+                      name="accesoFinanciamiento"
+                      value={diagnostico.accesoFinanciamiento}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${formErrors.accesoFinanciamiento ? "border-red-500" : "border-gray-300"
+                        }`}
+                    >
+                      <option value="">Selecciona una opción</option>
+                      <option value="Fácil acceso (créditos bancarios, inversionistas)">
+                        Fácil acceso (créditos bancarios, inversionistas)
+                      </option>
+                      <option value="Acceso limitado (solo préstamos pequeños o informales)">
+                        Acceso limitado (solo préstamos pequeños o informales)
+                      </option>
+                      <option value="Sin acceso (deudas, historial crediticio negativo)">
+                        Sin acceso (deudas, historial crediticio negativo)
+                      </option>
+                    </select>
+                    {formErrors.accesoFinanciamiento && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {formErrors.accesoFinanciamiento}
+                      </p>
                     )}
                   </div>
-                  <div className="mb-4">
-                    <label className="block mb-2 text-gray-600 font-medium">
-                      9. ¿Dónde vendes actualmente? (máximo 2 opciones) *
+                  <div className="form-group">
+                    <label
+                      htmlFor="flujoEfectivo"
+                      className="block text-gray-700 text-sm font-semibold mb-2"
+                    >
+                      Gestión del Flujo de Efectivo
                     </label>
-                    <div className="space-y-2">
-                      {["Local físico", "Redes sociales", "Tienda en línea", "Marketplace", "Distribuidores"].map(
-                        (lugar) => (
-                          <label key={lugar} className="flex items-center">
-                            <input
-                              type="checkbox"
-                              name="lugaresVenta"
-                              value={lugar}
-                              checked={diagnostico.lugaresVenta.includes(lugar)}
-                              onChange={handleLugaresVentaChange}
-                              className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                              disabled={
-                                !diagnostico.lugaresVenta.includes(lugar) &&
-                                diagnostico.lugaresVenta.length >= 2
-                              }
-                            />
-                            <span className="text-gray-600">{lugar}</span>
-                          </label>
-                        )
-                      )}
-                    </div>
-                    {formErrors.lugaresVenta && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.lugaresVenta}</p>
+                    <select
+                      id="flujoEfectivo"
+                      name="flujoEfectivo"
+                      value={diagnostico.flujoEfectivo}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${formErrors.flujoEfectivo ? "border-red-500" : "border-gray-300"
+                        }`}
+                    >
+                      <option value="">Selecciona una opción</option>
+                      <option value="Muy eficiente y controlado">
+                        Muy eficiente y controlado
+                      </option>
+                      <option value="Suficiente, pero con poca planificación">
+                        Suficiente, pero con poca planificación
+                      </option>
+                      <option value="Justo, a menudo con escasez de liquidez">
+                        Justo, a menudo con escasez de liquidez
+                      </option>
+                      <option value="Crítico, problemas constantes de liquidez">
+                        Crítico, problemas constantes de liquidez
+                      </option>
+                    </select>
+                    {formErrors.flujoEfectivo && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {formErrors.flujoEfectivo}
+                      </p>
+                    )}
+                  </div>
+                  <div className="form-group md:col-span-2">
+                    <label
+                      htmlFor="gestionFinanciera"
+                      className="block text-gray-700 text-sm font-semibold mb-2"
+                    >
+                      ¿Cuál es el principal reto en tu gestión financiera?
+                    </label>
+                    <textarea
+                      id="gestionFinanciera"
+                      name="gestionFinanciera"
+                      value={diagnostico.gestionFinanciera}
+                      onChange={handleChange}
+                      rows={3}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${formErrors.gestionFinanciera ? "border-red-500" : "border-gray-300"
+                        }`}
+                      placeholder="Describe el reto..."
+                    ></textarea>
+                    {formErrors.gestionFinanciera && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {formErrors.gestionFinanciera}
+                      </p>
                     )}
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Bloque 3: Estrategia y Planeación */}
-            <div className="mb-4">
-              <div
-                className="flex justify-between items-center p-4 bg-blue-50 rounded-lg cursor-pointer"
+            {/* Bloque 3: Estrategia y Modelo de Negocio */}
+            <div
+              className={`mb-8 p-6 border rounded-lg transition-all duration-300 ease-in-out ${expandedBlocks.bloque3 ? "border-blue-300 bg-blue-50 shadow-md" : "border-gray-200 bg-white"
+                }`}
+            >
+              <h3
+                className="text-2xl font-bold text-blue-700 mb-4 cursor-pointer flex items-center justify-between"
                 onClick={() => toggleBlock("bloque3")}
               >
-                <h3 className="text-xl font-semibold text-blue-900">Bloque 3: Estrategia y Planeación</h3>
+                Estrategia y Modelo de Negocio
                 <svg
-                  className={`w-6 h-6 transform transition-transform duration-300 ${
-                    expandedBlocks.bloque3 ? "rotate-180" : "rotate-0"
-                  }`}
+                  className={`h-6 w-6 text-blue-700 transition-transform duration-300 ${expandedBlocks.bloque3 ? "rotate-90" : ""
+                    }`}
                   fill="none"
-                  stroke="currentColor"
                   viewBox="0 0 24 24"
+                  stroke="currentColor"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
                 </svg>
-              </div>
+              </h3>
               {expandedBlocks.bloque3 && (
-                <div className="p-4 bg-gray-50 rounded-lg mt-2 animate__animated animate__fadeIn">
-                  <div className="mb-4">
-                    <label className="block mb-2 text-gray-600 font-medium">
-                      10. ¿Tienes un plan estratégico o de crecimiento claro? *
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate__animated animate__fadeInDown animate__faster">
+                  <div className="form-group">
+                    <label
+                      htmlFor="propuestaValor"
+                      className="block text-gray-700 text-sm font-semibold mb-2"
+                    >
+                      Propuesta de Valor de tu Negocio
                     </label>
-                    <div className="space-y-2">
-                      {[
-                        "No",
-                        "Tengo ideas, pero no están documentadas",
-                        "Plan a 1 año",
-                        "Plan por áreas con seguimiento a KPIs",
-                      ].map((plan) => (
-                        <label key={plan} className="flex items-center">
-                          <input
-                            type="radio"
-                            name="planEstrategico"
-                            value={plan}
-                            checked={diagnostico.planEstrategico === plan}
-                            onChange={handleChange}
-                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                          />
-                          <span className="text-gray-600">{plan}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {formErrors.planEstrategico && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.planEstrategico}</p>
+                    <select
+                      id="propuestaValor"
+                      name="propuestaValor"
+                      value={diagnostico.propuestaValor}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${formErrors.propuestaValor ? "border-red-500" : "border-gray-300"
+                        }`}
+                    >
+                      <option value="">Selecciona una opción</option>
+                      <option value="Clara, única y diferenciada">
+                        Clara, única y diferenciada
+                      </option>
+                      <option value="Existe, pero necesita mayor definición">
+                        Existe, pero necesita mayor definición
+                      </option>
+                      <option value="Poco clara o similar a la competencia">
+                        Poco clara o similar a la competencia
+                      </option>
+                    </select>
+                    {formErrors.propuestaValor && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {formErrors.propuestaValor}
+                      </p>
                     )}
                   </div>
-                  <div className="mb-4">
-                    <label className="block mb-2 text-gray-600 font-medium">
-                      11. ¿Con qué frecuencia revisas objetivos o indicadores de desempeño? *
+                  <div className="form-group">
+                    <label
+                      htmlFor="modeloNegocio"
+                      className="block text-gray-700 text-sm font-semibold mb-2"
+                    >
+                      Claridad y Solidez de tu Modelo de Negocio
                     </label>
-                    <div className="space-y-2">
-                      {["Nunca", "Una vez al año", "Trimestralmente", "Cada mes o más"].map((frecuencia) => (
-                        <label key={frecuencia} className="flex items-center">
-                          <input
-                            type="radio"
-                            name="frecuenciaRevision"
-                            value={frecuencia}
-                            checked={diagnostico.frecuenciaRevision === frecuencia}
-                            onChange={handleChange}
-                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                          />
-                          <span className="text-gray-600">{frecuencia}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {formErrors.frecuenciaRevision && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.frecuenciaRevision}</p>
+                    <select
+                      id="modeloNegocio"
+                      name="modeloNegocio"
+                      value={diagnostico.modeloNegocio}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${formErrors.modeloNegocio ? "border-red-500" : "border-gray-300"
+                        }`}
+                    >
+                      <option value="">Selecciona una opción</option>
+                      <option value="Muy claro, probado y escalable">
+                        Muy claro, probado y escalable
+                      </option>
+                      <option value="Funcional, pero con áreas de mejora">
+                        Funcional, pero con áreas de mejora
+                      </option>
+                      <option value="En desarrollo o poco definido">
+                        En desarrollo o poco definido
+                      </option>
+                      <option value="Inestable o con fallas constantes">
+                        Inestable o con fallas constantes
+                      </option>
+                    </select>
+                    {formErrors.modeloNegocio && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {formErrors.modeloNegocio}
+                      </p>
                     )}
                   </div>
-                  <div className="mb-4">
-                    <label className="block mb-2 text-gray-600 font-medium">
-                      12. ¿Cuál consideras que es tu mayor obstáculo estratégico actual? *
+                  <div className="form-group">
+                    <label
+                      htmlFor="ventajaCompetitiva"
+                      className="block text-gray-700 text-sm font-semibold mb-2"
+                    >
+                      Ventaja Competitiva Principal
                     </label>
-                    <div className="space-y-2">
-                      {[
-                        "Falta de visión o enfoque",
-                        "Desorden o improvisación",
-                        "Problemas en ejecución",
-                        "No tengo claridad de hacia dónde ir",
-                      ].map((obstaculo) => (
-                        <label key={obstaculo} className="flex items-center">
-                          <input
-                            type="radio"
-                            name="obstaculoEstrategico"
-                            value={obstaculo}
-                            checked={diagnostico.obstaculoEstrategico === obstaculo}
-                            onChange={handleChange}
-                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                          />
-                          <span className="text-gray-600">{obstaculo}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {formErrors.obstaculoEstrategico && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.obstaculoEstrategico}</p>
+                    <textarea
+                      id="ventajaCompetitiva"
+                      name="ventajaCompetitiva"
+                      value={diagnostico.ventajaCompetitiva}
+                      onChange={handleChange}
+                      rows={3}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${formErrors.ventajaCompetitiva ? "border-red-500" : "border-gray-300"
+                        }`}
+                      placeholder="Describe tu ventaja competitiva..."
+                    ></textarea>
+                    {formErrors.ventajaCompetitiva && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {formErrors.ventajaCompetitiva}
+                      </p>
+                    )}
+                  </div>
+                  <div className="form-group">
+                    <label
+                      htmlFor="innovacionProducto"
+                      className="block text-gray-700 text-sm font-semibold mb-2"
+                    >
+                      Nivel de Innovación en Productos/Servicios
+                    </label>
+                    <select
+                      id="innovacionProducto"
+                      name="innovacionProducto"
+                      value={diagnostico.innovacionProducto}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${formErrors.innovacionProducto ? "border-red-500" : "border-gray-300"
+                        }`}
+                    >
+                      <option value="">Selecciona una opción</option>
+                      <option value="Constante y disruptiva">
+                        Constante y disruptiva
+                      </option>
+                      <option value="Ocasional y de mejora">
+                        Ocasional y de mejora
+                      </option>
+                      <option value="Básica, siguiendo tendencias">
+                        Básica, siguiendo tendencias
+                      </option>
+                      <option value="Nula o muy limitada">
+                        Nula o muy limitada
+                      </option>
+                    </select>
+                    {formErrors.innovacionProducto && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {formErrors.innovacionProducto}
+                      </p>
                     )}
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Bloque 4: Finanzas */}
-            <div className="mb-4">
-              <div
-                className="flex justify-between items-center p-4 bg-blue-50 rounded-lg cursor-pointer"
+            {/* Bloque 4: Marketing y Ventas */}
+            <div
+              className={`mb-8 p-6 border rounded-lg transition-all duration-300 ease-in-out ${expandedBlocks.bloque4 ? "border-blue-300 bg-blue-50 shadow-md" : "border-gray-200 bg-white"
+                }`}
+            >
+              <h3
+                className="text-2xl font-bold text-blue-700 mb-4 cursor-pointer flex items-center justify-between"
                 onClick={() => toggleBlock("bloque4")}
               >
-                <h3 className="text-xl font-semibold text-blue-900">Bloque 4: Finanzas</h3>
+                Marketing y Ventas
                 <svg
-                  className={`w-6 h-6 transform transition-transform duration-300 ${
-                    expandedBlocks.bloque4 ? "rotate-180" : "rotate-0"
-                  }`}
+                  className={`h-6 w-6 text-blue-700 transition-transform duration-300 ${expandedBlocks.bloque4 ? "rotate-90" : ""
+                    }`}
                   fill="none"
-                  stroke="currentColor"
                   viewBox="0 0 24 24"
+                  stroke="currentColor"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
                 </svg>
-              </div>
+              </h3>
               {expandedBlocks.bloque4 && (
-                <div className="p-4 bg-gray-50 rounded-lg mt-2 animate__animated animate__fadeIn">
-                  <div className="mb-4">
-                    <label className="block mb-2 text-gray-600 font-medium">
-                      13. ¿Cómo llevas el control financiero de tu negocio? *
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate__animated animate__fadeInDown animate__faster">
+                  <div className="form-group">
+                    <label
+                      htmlFor="estrategiaMarketing"
+                      className="block text-gray-700 text-sm font-semibold mb-2"
+                    >
+                      Estrategia de Marketing Digital y Tradicional
                     </label>
-                    <div className="space-y-2">
-                      {[
-                        "No llevo",
-                        "Excel / libreta",
-                        "Software contable",
-                        "Tengo asesor o responsable interno",
-                      ].map((control) => (
-                        <label key={control} className="flex items-center">
-                          <input
-                            type="radio"
-                            name="controlFinanciero"
-                            value={control}
-                            checked={diagnostico.controlFinanciero === control}
-                            onChange={handleChange}
-                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                          />
-                          <span className="text-gray-600">{control}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {formErrors.controlFinanciero && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.controlFinanciero}</p>
+                    <select
+                      id="estrategiaMarketing"
+                      name="estrategiaMarketing"
+                      value={diagnostico.estrategiaMarketing}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${formErrors.estrategiaMarketing ? "border-red-500" : "border-gray-300"
+                        }`}
+                    >
+                      <option value="">Selecciona una opción</option>
+                      <option value="Bien definida y en ejecución constante">
+                        Bien definida y en ejecución constante
+                      </option>
+                      <option value="Existe, pero con implementación inconsistente">
+                        Existe, pero con implementación inconsistente
+                      </option>
+                      <option value="Poca o nula estrategia">
+                        Poca o nula estrategia
+                      </option>
+                    </select>
+                    {formErrors.estrategiaMarketing && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {formErrors.estrategiaMarketing}
+                      </p>
                     )}
                   </div>
-                  <div className="mb-4">
-                    <label className="block mb-2 text-gray-600 font-medium">
-                      14. ¿Sabes cuánto cuesta operar tu negocio al mes? *
+                  <div className="form-group">
+                    <label
+                      htmlFor="perfilesClientes"
+                      className="block text-gray-700 text-sm font-semibold mb-2"
+                    >
+                      Definición de Perfiles de Clientes (Buyer Personas)
                     </label>
-                    <div className="space-y-2">
-                      {[
-                        "No",
-                        "Aproximadamente",
-                        "Sí, lo tengo calculado y monitoreado",
-                        "Sí, y lo comparo con mis ventas e ingresos",
-                      ].map((costo) => (
-                        <label key={costo} className="flex items-center">
-                          <input
-                            type="radio"
-                            name="costoOperacionMensual"
-                            value={costo}
-                            checked={diagnostico.costoOperacionMensual === costo}
-                            onChange={handleChange}
-                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                          />
-                          <span className="text-gray-600">{costo}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {formErrors.costoOperacionMensual && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.costoOperacionMensual}</p>
+                    <select
+                      id="perfilesClientes"
+                      name="perfilesClientes"
+                      value={diagnostico.perfilesClientes}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${formErrors.perfilesClientes ? "border-red-500" : "border-gray-300"
+                        }`}
+                    >
+                      <option value="">Selecciona una opción</option>
+                      <option value="Muy claros y bien segmentados">
+                        Muy claros y bien segmentados
+                      </option>
+                      <option value="Identificados, pero no a detalle">
+                        Identificados, pero no a detalle
+                      </option>
+                      <option value="Poco claros o inexistentes">
+                        Poco claros o inexistentes
+                      </option>
+                    </select>
+                    {formErrors.perfilesClientes && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {formErrors.perfilesClientes}
+                      </p>
                     )}
                   </div>
-                  <div className="mb-4">
-                    <label className="block mb-2 text-gray-600 font-medium">
-                      15. ¿Cuál es tu principal preocupación financiera actual? *
+                  <div className="form-group">
+                    <label
+                      htmlFor="cierreVentas"
+                      className="block text-gray-700 text-sm font-semibold mb-2"
+                    >
+                      Efectividad en el Cierre de Ventas
                     </label>
-                    <div className="space-y-2">
-                      {[
-                        "No sé si gano o pierdo",
-                        "No puedo pagarme a mí mismo",
-                        "No me alcanza para reinvertir",
-                        "Todo depende de un solo cliente",
-                      ].map((preocupacion) => (
-                        <label key={preocupacion} className="flex items-center">
-                          <input
-                            type="radio"
-                            name="preocupacionFinanciera"
-                            value={preocupacion}
-                            checked={diagnostico.preocupacionFinanciera === preocupacion}
-                            onChange={handleChange}
-                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                          />
-                          <span className="text-gray-600">{preocupacion}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {formErrors.preocupacionFinanciera && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.preocupacionFinanciera}</p>
+                    <select
+                      id="cierreVentas"
+                      name="cierreVentas"
+                      value={diagnostico.cierreVentas}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${formErrors.cierreVentas ? "border-red-500" : "border-gray-300"
+                        }`}
+                    >
+                      <option value="">Selecciona una opción</option>
+                      <option value="Muy alta, procesos definidos">
+                        Muy alta, procesos definidos
+                      </option>
+                      <option value="Aceptable, pero con oportunidades de mejora">
+                        Aceptable, pero con oportunidades de mejora
+                      </option>
+                      <option value="Baja, muchas oportunidades perdidas">
+                        Baja, muchas oportunidades perdidas
+                      </option>
+                    </select>
+                    {formErrors.cierreVentas && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {formErrors.cierreVentas}
+                      </p>
+                    )}
+                  </div>
+                  <div className="form-group md:col-span-2">
+                    <label
+                      htmlFor="retoComercial"
+                      className="block text-gray-700 text-sm font-semibold mb-2"
+                    >
+                      ¿Cuál es tu principal reto comercial actualmente?
+                    </label>
+                    <textarea
+                      id="retoComercial"
+                      name="retoComercial"
+                      value={diagnostico.retoComercial}
+                      onChange={handleChange}
+                      rows={3}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${formErrors.retoComercial ? "border-red-500" : "border-gray-300"
+                        }`}
+                      placeholder="Describe el reto..."
+                    ></textarea>
+                    {formErrors.retoComercial && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {formErrors.retoComercial}
+                      </p>
                     )}
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Bloque 5: Marketing y Ventas */}
-            <div className="mb-4">
-              <div
-                className="flex justify-between items-center p-4 bg-blue-50 rounded-lg cursor-pointer"
+            {/* Bloque 5: Operaciones */}
+            <div
+              className={`mb-8 p-6 border rounded-lg transition-all duration-300 ease-in-out ${expandedBlocks.bloque5 ? "border-blue-300 bg-blue-50 shadow-md" : "border-gray-200 bg-white"
+                }`}
+            >
+              <h3
+                className="text-2xl font-bold text-blue-700 mb-4 cursor-pointer flex items-center justify-between"
                 onClick={() => toggleBlock("bloque5")}
               >
-                <h3 className="text-xl font-semibold text-blue-900">Bloque 5: Marketing y Ventas</h3>
+                Operaciones
                 <svg
-                  className={`w-6 h-6 transform transition-transform duration-300 ${
-                    expandedBlocks.bloque5 ? "rotate-180" : "rotate-0"
-                  }`}
+                  className={`h-6 w-6 text-blue-700 transition-transform duration-300 ${expandedBlocks.bloque5 ? "rotate-90" : ""
+                    }`}
                   fill="none"
-                  stroke="currentColor"
                   viewBox="0 0 24 24"
+                  stroke="currentColor"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
                 </svg>
-              </div>
+              </h3>
               {expandedBlocks.bloque5 && (
-                <div className="p-4 bg-gray-50 rounded-lg mt-2 animate__animated animate__fadeIn">
-                  <div className="mb-4">
-                    <label className="block mb-2 text-gray-600 font-medium">
-                      16. ¿Cuentas con una estrategia de marketing? *
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate__animated animate__fadeInDown animate__faster">
+                  <div className="form-group">
+                    <label
+                      htmlFor="procesosDocumentados"
+                      className="block text-gray-700 text-sm font-semibold mb-2"
+                    >
+                      Procesos Clave Documentados y Estandarizados
                     </label>
-                    <div className="space-y-2">
-                      {[
-                        "No",
-                        "Solo publicaciones ocasionales",
-                        "Hago campañas y promociones",
-                        "Tengo segmentación, embudos y estrategia digital",
-                      ].map((estrategia) => (
-                        <label key={estrategia} className="flex items-center">
-                          <input
-                            type="radio"
-                            name="estrategiaMarketing"
-                            value={estrategia}
-                            checked={diagnostico.estrategiaMarketing === estrategia}
-                            onChange={handleChange}
-                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                          />
-                          <span className="text-gray-600">{estrategia}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {formErrors.estrategiaMarketing && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.estrategiaMarketing}</p>
+                    <select
+                      id="procesosDocumentados"
+                      name="procesosDocumentados"
+                      value={diagnostico.procesosDocumentados}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${formErrors.procesosDocumentados ? "border-red-500" : "border-gray-300"
+                        }`}
+                    >
+                      <option value="">Selecciona una opción</option>
+                      <option value="La mayoría están documentados y son seguidos">
+                        La mayoría están documentados y son seguidos
+                      </option>
+                      <option value="Algunos documentados, pero no siempre seguidos">
+                        Algunos documentados, pero no siempre seguidos
+                      </option>
+                      <option value="Pocos o ningún proceso documentado">
+                        Pocos o ningún proceso documentado
+                      </option>
+                    </select>
+                    {formErrors.procesosDocumentados && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {formErrors.procesosDocumentados}
+                      </p>
                     )}
                   </div>
-                  <div className="mb-4">
-                    <label className="block mb-2 text-gray-600 font-medium">
-                      17. ¿Tienes definidos tus perfiles de clientes ideales (buyer persona)? *
+                  <div className="form-group">
+                    <label
+                      htmlFor="herramientasControl"
+                      className="block text-gray-700 text-sm font-semibold mb-2"
+                    >
+                      Herramientas de Control y Seguimiento Operativo
                     </label>
-                    <div className="space-y-2">
-                      {[
-                        "No",
-                        "Tengo una idea, pero no los tengo segmentados",
-                        "Sí, los tengo definidos y dirigidos",
-                        "Sí, y hago análisis continuo de comportamiento",
-                      ].map((perfil) => (
-                        <label key={perfil} className="flex items-center">
-                          <input
-                            type="radio"
-                            name="perfilesClientes"
-                            value={perfil}
-                            checked={diagnostico.perfilesClientes === perfil}
-                            onChange={handleChange}
-                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                          />
-                          <span className="text-gray-600">{perfil}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {formErrors.perfilesClientes && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.perfilesClientes}</p>
+                    <select
+                      id="herramientasControl"
+                      name="herramientasControl"
+                      value={diagnostico.herramientasControl}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${formErrors.herramientasControl ? "border-red-500" : "border-gray-300"
+                        }`}
+                    >
+                      <option value="">Selecciona una opción</option>
+                      <option value="Sistemas avanzados (ERP, CRM, etc.)">
+                        Sistemas avanzados (ERP, CRM, etc.)
+                      </option>
+                      <option value="Hojas de cálculo y herramientas básicas">
+                        Hojas de cálculo y herramientas básicas
+                      </option>
+                      <option value="Control manual o poco sistemático">
+                        Control manual o poco sistemático
+                      </option>
+                    </select>
+                    {formErrors.herramientasControl && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {formErrors.herramientasControl}
+                      </p>
                     )}
                   </div>
-                  <div className="mb-4">
-                    <label className="block mb-2 text-gray-600 font-medium">
-                      18. ¿Cómo cierras la mayoría de tus ventas? *
+                  <div className="form-group">
+                    <label
+                      htmlFor="eficienciaOperacion"
+                      className="block text-gray-700 text-sm font-semibold mb-2"
+                    >
+                      Nivel de Eficiencia en tus Operaciones Diarias
                     </label>
-                    <div className="space-y-2">
-                      {[
-                        "Venta directa sin seguimiento",
-                        "Venta por redes / mensajes",
-                        "Uso de CRM o embudo",
-                        "Venta asistida con seguimiento estructurado",
-                      ].map((cierre) => (
-                        <label key={cierre} className="flex items-center">
-                          <input
-                            type="radio"
-                            name="cierreVentas"
-                            value={cierre}
-                            checked={diagnostico.cierreVentas === cierre}
-                            onChange={handleChange}
-                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                          />
-                          <span className="text-gray-600">{cierre}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {formErrors.cierreVentas && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.cierreVentas}</p>
+                    <select
+                      id="eficienciaOperacion"
+                      name="eficienciaOperacion"
+                      value={diagnostico.eficienciaOperacion}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${formErrors.eficienciaOperacion ? "border-red-500" : "border-gray-300"
+                        }`}
+                    >
+                      <option value="">Selecciona una opción</option>
+                      <option value="Muy eficiente, poca fricción">
+                        Muy eficiente, poca fricción
+                      </option>
+                      <option value="Aceptable, con algunos cuellos de botella">
+                        Aceptable, con algunos cuellos de botella
+                      </option>
+                      <option value="Baja, procesos lentos y errores frecuentes">
+                        Baja, procesos lentos y errores frecuentes
+                      </option>
+                    </select>
+                    {formErrors.eficienciaOperacion && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {formErrors.eficienciaOperacion}
+                      </p>
                     )}
                   </div>
-                  <div className="mb-4">
-                    <label className="block mb-2 text-gray-600 font-medium">
-                      19. ¿Cuál es el principal reto comercial que enfrentas? *
+                  <div className="form-group md:col-span-2">
+                    <label
+                      htmlFor="obstaculoOperativo"
+                      className="block text-gray-700 text-sm font-semibold mb-2"
+                    >
+                      ¿Cuál es el obstáculo operativo más frecuente?
                     </label>
-                    <div className="space-y-2">
-                      {[
-                        "No genero suficientes prospectos",
-                        "No convierto en ventas",
-                        "Mis clientes no repiten",
-                        "No tengo diferenciación",
-                      ].map((reto) => (
-                        <label key={reto} className="flex items-center">
-                          <input
-                            type="radio"
-                            name="retoComercial"
-                            value={reto}
-                            checked={diagnostico.retoComercial === reto}
-                            onChange={handleChange}
-                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                          />
-                          <span className="text-gray-600">{reto}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {formErrors.retoComercial && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.retoComercial}</p>
+                    <textarea
+                      id="obstaculoOperativo"
+                      name="obstaculoOperativo"
+                      value={diagnostico.obstaculoOperativo}
+                      onChange={handleChange}
+                      rows={3}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${formErrors.obstaculoOperativo ? "border-red-500" : "border-gray-300"
+                        }`}
+                      placeholder="Describe el obstáculo..."
+                    ></textarea>
+                    {formErrors.obstaculoOperativo && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {formErrors.obstaculoOperativo}
+                      </p>
                     )}
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Bloque 6: Operaciones y Procesos */}
-            <div className="mb-4">
-              <div
-                className="flex justify-between items-center p-4 bg-blue-50 rounded-lg cursor-pointer"
+            {/* Bloque 6: Recursos Humanos */}
+            <div
+              className={`mb-8 p-6 border rounded-lg transition-all duration-300 ease-in-out ${expandedBlocks.bloque6 ? "border-blue-300 bg-blue-50 shadow-md" : "border-gray-200 bg-white"
+                }`}
+            >
+              <h3
+                className="text-2xl font-bold text-blue-700 mb-4 cursor-pointer flex items-center justify-between"
                 onClick={() => toggleBlock("bloque6")}
               >
-                <h3 className="text-xl font-semibold text-blue-900">Bloque 6: Operaciones y Procesos</h3>
+                Recursos Humanos
                 <svg
-                  className={`w-6 h-6 transform transition-transform duration-300 ${
-                    expandedBlocks.bloque6 ? "rotate-180" : "rotate-0"
-                  }`}
+                  className={`h-6 w-6 text-blue-700 transition-transform duration-300 ${expandedBlocks.bloque6 ? "rotate-90" : ""
+                    }`}
                   fill="none"
-                  stroke="currentColor"
                   viewBox="0 0 24 24"
+                  stroke="currentColor"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
                 </svg>
-              </div>
+              </h3>
               {expandedBlocks.bloque6 && (
-                <div className="p-4 bg-gray-50 rounded-lg mt-2 animate__animated animate__fadeIn">
-                  <div className="mb-4">
-                    <label className="block mb-2 text-gray-600 font-medium">
-                      20. ¿Tienes procesos documentados? *
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate__animated animate__fadeInDown animate__faster">
+                  <div className="form-group">
+                    <label
+                      htmlFor="numeroPersonas"
+                      className="block text-gray-700 text-sm font-semibold mb-2"
+                    >
+                      Número de Personas que Trabajan Contigo (incluyéndote)
                     </label>
-                    <div className="space-y-2">
-                      {[
-                        "No",
-                        "Solo lo básico (ventas o pedidos)",
-                        "Varias áreas, pero sin estandarizar",
-                        "Sí, documentados y con seguimiento",
-                      ].map((proceso) => (
-                        <label key={proceso} className="flex items-center">
-                          <input
-                            type="radio"
-                            name="procesosDocumentados"
-                            value={proceso}
-                            checked={diagnostico.procesosDocumentados === proceso}
-                            onChange={handleChange}
-                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                          />
-                          <span className="text-gray-600">{proceso}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {formErrors.procesosDocumentados && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.procesosDocumentados}</p>
+                    <select
+                      id="numeroPersonas"
+                      name="numeroPersonas"
+                      value={diagnostico.numeroPersonas}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${formErrors.numeroPersonas ? "border-red-500" : "border-gray-300"
+                        }`}
+                    >
+                      <option value="">Selecciona una opción</option>
+                      <option value="1-5">1-5</option>
+                      <option value="6-15">6-15</option>
+                      <option value="16-50">16-50</option>
+                      <option value="Más de 50">Más de 50</option>
+                    </select>
+                    {formErrors.numeroPersonas && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {formErrors.numeroPersonas}
+                      </p>
                     )}
                   </div>
-                  <div className="mb-4">
-                    <label className="block mb-2 text-gray-600 font-medium">
-                      21. ¿Cuáles son tus herramientas de control operativo? *
+                  <div className="form-group">
+                    <label
+                      htmlFor="sistemaGestionRH"
+                      className="block text-gray-700 text-sm font-semibold mb-2"
+                    >
+                      Sistema de Gestión de Recursos Humanos
                     </label>
-                    <div className="space-y-2">
-                      {[
-                        "Ninguna",
-                        "Agenda, papel, WhatsApp",
-                        "Excel, Google Drive",
-                        "Software (ERP, POS, etc.)",
-                      ].map((herramienta) => (
-                        <label key={herramienta} className="flex items-center">
-                          <input
-                            type="radio"
-                            name="herramientasControl"
-                            value={herramienta}
-                            checked={diagnostico.herramientasControl === herramienta}
-                            onChange={handleChange}
-                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                          />
-                          <span className="text-gray-600">{herramienta}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {formErrors.herramientasControl && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.herramientasControl}</p>
+                    <select
+                      id="sistemaGestionRH"
+                      name="sistemaGestionRH"
+                      value={diagnostico.sistemaGestionRH}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${formErrors.sistemaGestionRH ? "border-red-500" : "border-gray-300"
+                        }`}
+                    >
+                      <option value="">Selecciona una opción</option>
+                      <option value="Formal y estructurado (evaluaciones, capacitaciones)">
+                        Formal y estructurado (evaluaciones, capacitaciones)
+                      </option>
+                      <option value="Básico, centrado en nómina y contratos">
+                        Básico, centrado en nómina y contratos
+                      </option>
+                      <option value="Informal o inexistente">
+                        Informal o inexistente
+                      </option>
+                    </select>
+                    {formErrors.sistemaGestionRH && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {formErrors.sistemaGestionRH}
+                      </p>
                     )}
                   </div>
-                  <div className="mb-4">
-                    <label className="block mb-2 text-gray-600 font-medium">
-                      22. ¿Cómo sabes si tu operación es eficiente? *
+                  <div className="form-group md:col-span-2">
+                    <label
+                      htmlFor="retoGestionPersonas"
+                      className="block text-gray-700 text-sm font-semibold mb-2"
+                    >
+                      ¿Cuál es tu mayor reto en la gestión de personas?
                     </label>
-                    <div className="space-y-2">
-                      {[
-                        "Solo por intuición",
-                        "Cuando me lo dice un cliente",
-                        "Porque entrego a tiempo",
-                        "Porque mido rendimiento por área",
-                      ].map((eficiencia) => (
-                        <label key={eficiencia} className="flex items-center">
-                          <input
-                            type="radio"
-                            name="eficienciaOperacion"
-                            value={eficiencia}
-                            checked={diagnostico.eficienciaOperacion === eficiencia}
-                            onChange={handleChange}
-                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                          />
-                          <span className="text-gray-600">{eficiencia}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {formErrors.eficienciaOperacion && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.eficienciaOperacion}</p>
-                    )}
-                  </div>
-                  <div className="mb-4">
-                    <label className="block mb-2 text-gray-600 font-medium">
-                      23. ¿Qué obstáculo operativo enfrentas con más frecuencia? *
-                    </label>
-                    <div className="space-y-2">
-                      {[
-                        "Retrasos en entrega",
-                        "Errores de producto / servicio",
-                        "Cuellos de botella internos",
-                        "Falta de estandarización",
-                      ].map((obstaculo) => (
-                        <label key={obstaculo} className="flex items-center">
-                          <input
-                            type="radio"
-                            name="obstaculoOperativo"
-                            value={obstaculo}
-                            checked={diagnostico.obstaculoOperativo === obstaculo}
-                            onChange={handleChange}
-                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                          />
-                          <span className="text-gray-600">{obstaculo}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {formErrors.obstaculoOperativo && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.obstaculoOperativo}</p>
+                    <textarea
+                      id="retoGestionPersonas"
+                      name="retoGestionPersonas"
+                      value={diagnostico.retoGestionPersonas}
+                      onChange={handleChange}
+                      rows={3}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${formErrors.retoGestionPersonas ? "border-red-500" : "border-gray-300"
+                        }`}
+                      placeholder="Describe el reto..."
+                    ></textarea>
+                    {formErrors.retoGestionPersonas && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {formErrors.retoGestionPersonas}
+                      </p>
                     )}
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Bloque 7: Recursos Humanos */}
-            <div className="mb-4">
-              <div
-                className="flex justify-between items-center p-4 bg-blue-50 rounded-lg cursor-pointer"
+            {/* Bloque 7: Tecnología */}
+            <div
+              className={`mb-8 p-6 border rounded-lg transition-all duration-300 ease-in-out ${expandedBlocks.bloque7 ? "border-blue-300 bg-blue-50 shadow-md" : "border-gray-200 bg-white"
+                }`}
+            >
+              <h3
+                className="text-2xl font-bold text-blue-700 mb-4 cursor-pointer flex items-center justify-between"
                 onClick={() => toggleBlock("bloque7")}
               >
-                <h3 className="text-xl font-semibold text-blue-900">Bloque 7: Recursos Humanos</h3>
+                Tecnología
                 <svg
-                  className={`w-6 h-6 transform transition-transform duration-300 ${
-                    expandedBlocks.bloque7 ? "rotate-180" : "rotate-0"
-                  }`}
+                  className={`h-6 w-6 text-blue-700 transition-transform duration-300 ${expandedBlocks.bloque7 ? "rotate-90" : ""
+                    }`}
                   fill="none"
-                  stroke="currentColor"
                   viewBox="0 0 24 24"
+                  stroke="currentColor"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
                 </svg>
-              </div>
+              </h3>
               {expandedBlocks.bloque7 && (
-                <div className="p-4 bg-gray-50 rounded-lg mt-2 animate__animated animate__fadeIn">
-                  <div className="mb-4">
-                    <label className="block mb-2 text-gray-600 font-medium">
-                      24. ¿Cuántas personas trabajan contigo actualmente? *
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate__animated animate__fadeInDown animate__faster">
+                  <div className="form-group">
+                    <label
+                      htmlFor="herramientasDigitales"
+                      className="block text-gray-700 text-sm font-semibold mb-2"
+                    >
+                      Herramientas Digitales para Operación y Gestión
                     </label>
-                    <div className="space-y-2">
-                      {["Solo yo", "2-5", "6-15", "Más de 15"].map((numero) => (
-                        <label key={numero} className="flex items-center">
-                          <input
-                            type="radio"
-                            name="numeroPersonas"
-                            value={numero}
-                            checked={diagnostico.numeroPersonas === numero}
-                            onChange={handleChange}
-                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                          />
-                          <span className="text-gray-600">{numero}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {formErrors.numeroPersonas && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.numeroPersonas}</p>
+                    <select
+                      id="herramientasDigitales"
+                      name="herramientasDigitales"
+                      value={diagnostico.herramientasDigitales}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${formErrors.herramientasDigitales ? "border-red-500" : "border-gray-300"
+                        }`}
+                    >
+                      <option value="">Selecciona una opción</option>
+                      <option value="Amplio uso de software y plataformas avanzadas">
+                        Amplio uso de software y plataformas avanzadas
+                      </option>
+                      <option value="Uso básico de ofimática y algunas herramientas gratuitas">
+                        Uso básico de ofimática y algunas herramientas gratuitas
+                      </option>
+                      <option value="Dependencia de procesos manuales o nulo uso de tecnología">
+                        Dependencia de procesos manuales o nulo uso de tecnología
+                      </option>
+                    </select>
+                    {formErrors.herramientasDigitales && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {formErrors.herramientasDigitales}
+                      </p>
                     )}
                   </div>
-                  <div className="mb-4">
-                    <label className="block mb-2 text-gray-600 font-medium">
-                      25. ¿Tienes definido un sistema de contratación, capacitación o evaluación? *
+                  <div className="form-group md:col-span-2">
+                    <label
+                      htmlFor="retoTecnologico"
+                      className="block text-gray-700 text-sm font-semibold mb-2"
+                    >
+                      ¿Cuál es tu mayor reto tecnológico?
                     </label>
-                    <div className="space-y-2">
-                      {[
-                        "No",
-                        "Solo capacito cuando hay errores",
-                        "Capacito y doy retroalimentación",
-                        "Tengo procesos definidos y evalúo desempeño",
-                      ].map((sistema) => (
-                        <label key={sistema} className="flex items-center">
-                          <input
-                            type="radio"
-                            name="sistemaGestionRH"
-                            value={sistema}
-                            checked={diagnostico.sistemaGestionRH === sistema}
-                            onChange={handleChange}
-                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                          />
-                          <span className="text-gray-600">{sistema}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {formErrors.sistemaGestionRH && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.sistemaGestionRH}</p>
-                    )}
-                  </div>
-                  <div className="mb-4">
-                    <label className="block mb-2 text-gray-600 font-medium">
-                      26. ¿Cuál es tu reto más grande en gestión de personas? *
-                    </label>
-                    <div className="space-y-2">
-                      {[
-                        "No logro retener talento",
-                        "Hay rotación o desorden",
-                        "No puedo delegar",
-                        "Mi equipo no es productivo",
-                      ].map((reto) => (
-                        <label key={reto} className="flex items-center">
-                          <input
-                            type="radio"
-                            name="retoGestionPersonas"
-                            value={reto}
-                            checked={diagnostico.retoGestionPersonas === reto}
-                            onChange={handleChange}
-                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                          />
-                          <span className="text-gray-600">{reto}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {formErrors.retoGestionPersonas && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.retoGestionPersonas}</p>
+                    <textarea
+                      id="retoTecnologico"
+                      name="retoTecnologico"
+                      value={diagnostico.retoTecnologico}
+                      onChange={handleChange}
+                      rows={3}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${formErrors.retoTecnologico ? "border-red-500" : "border-gray-300"
+                        }`}
+                      placeholder="Describe el reto..."
+                    ></textarea>
+                    {formErrors.retoTecnologico && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {formErrors.retoTecnologico}
+                      </p>
                     )}
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Bloque 8: Tecnología y Digitalización */}
-            <div className="mb-4">
-              <div
-                className="flex justify-between items-center p-4 bg-blue-50 rounded-lg cursor-pointer"
+            {/* Bloque 8: Legal y Fiscal */}
+            <div
+              className={`mb-8 p-6 border rounded-lg transition-all duration-300 ease-in-out ${expandedBlocks.bloque8 ? "border-blue-300 bg-blue-50 shadow-md" : "border-gray-200 bg-white"
+                }`}
+            >
+              <h3
+                className="text-2xl font-bold text-blue-700 mb-4 cursor-pointer flex items-center justify-between"
                 onClick={() => toggleBlock("bloque8")}
               >
-                <h3 className="text-xl font-semibold text-blue-900">Bloque 8: Tecnología y Digitalización</h3>
+                Legal y Fiscal
                 <svg
-                  className={`w-6 h-6 transform transition-transform duration-300 ${
-                    expandedBlocks.bloque8 ? "rotate-180" : "rotate-0"
-                  }`}
+                  className={`h-6 w-6 text-blue-700 transition-transform duration-300 ${expandedBlocks.bloque8 ? "rotate-90" : ""
+                    }`}
                   fill="none"
-                  stroke="currentColor"
                   viewBox="0 0 24 24"
+                  stroke="currentColor"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
                 </svg>
-              </div>
+              </h3>
               {expandedBlocks.bloque8 && (
-                <div className="p-4 bg-gray-50 rounded-lg mt-2 animate__animated animate__fadeIn">
-                  <div className="mb-4">
-                    <label className="block mb-2 text-gray-600 font-medium">
-                      27. ¿Qué herramientas digitales usas actualmente? *
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate__animated animate__fadeInDown animate__faster">
+                  <div className="form-group">
+                    <label
+                      htmlFor="claridadFiscalLegal"
+                      className="block text-gray-700 text-sm font-semibold mb-2"
+                    >
+                      Claridad y Cumplimiento de Obligaciones Fiscales y Legales
                     </label>
-                    <div className="space-y-2">
-                      {[
-                        "Ninguna",
-                        "WhatsApp, Excel, redes",
-                        "CRM, software de ventas, contabilidad",
-                        "Herramientas integradas (ERP, automatizaciones)",
-                      ].map((herramienta) => (
-                        <label key={herramienta} className="flex items-center">
-                          <input
-                            type="radio"
-                            name="herramientasDigitales"
-                            value={herramienta}
-                            checked={diagnostico.herramientasDigitales === herramienta}
-                            onChange={handleChange}
-                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                          />
-                          <span className="text-gray-600">{herramienta}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {formErrors.herramientasDigitales && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.herramientasDigitales}</p>
-                    )}
-                  </div>
-                  <div className="mb-4">
-                    <label className="block mb-2 text-gray-600 font-medium">
-                      28. ¿Cuál es el mayor reto tecnológico que enfrentas? *
-                    </label>
-                    <div className="space-y-2">
-                      {[
-                        "No sé qué usar ni por dónde empezar",
-                        "No tengo dinero para invertir",
-                        "Tengo herramientas pero no las aprovecho",
-                        "No tengo a nadie que me ayude a implementarlas",
-                      ].map((reto) => (
-                        <label key={reto} className="flex items-center">
-                          <input
-                            type="radio"
-                            name="retoTecnologico"
-                            value={reto}
-                            checked={diagnostico.retoTecnologico === reto}
-                            onChange={handleChange}
-                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                          />
-                          <span className="text-gray-600">{reto}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {formErrors.retoTecnologico && (
-                      <p className="text-red-500 text-sm mt-1">{formErrors.retoTecnologico}</p>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Bloque 9: Legal y Fiscal */}
-            <div className="mb-4">
-              <div
-                className="flex justify-between items-center p-4 bg-blue-50 rounded-lg cursor-pointer"
-                onClick={() => toggleBlock("bloque9")}
-              >
-                <h3 className="text-xl font-semibold text-blue-900">Bloque 9: Legal y Fiscal</h3>
-                <svg
-                  className={`w-6 h-6 transform transition-transform duration-300 ${
-                    expandedBlocks.bloque9 ? "rotate-180" : "rotate-0"
-                  }`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-              {expandedBlocks.bloque9 && (
-                <div className="p-4 bg-gray-50 rounded-lg mt-2 animate__animated animate__fadeIn">
-                  {/* Pregunta 29 */}
-                  <div className="mb-4">
-                    <label className="block mb-2 text-gray-600 font-medium">
-                      29.&nbsp;¿Qué tan clara tienes tu situación fiscal y legal? *
-                    </label>
-                    <div className="space-y-2">
-                      {[
-                        "No estoy dado de alta / no sé mi situación",
-                        "Cumplo parcialmente y tengo dudas",
-                        "Cumplo con obligaciones básicas",
-                        "Tengo todo al día y asesoría especializada",
-                      ].map((claridad) => (
-                        <label key={claridad} className="flex items-center">
-                          <input
-                            type="radio"
-                            name="claridadFiscalLegal"
-                            value={claridad}
-                            checked={diagnostico.claridadFiscalLegal === claridad}
-                            onChange={handleChange}
-                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                          />
-                          <span className="text-gray-600">{claridad}</span>
-                        </label>
-                      ))}
-                    </div>
+                    <select
+                      id="claridadFiscalLegal"
+                      name="claridadFiscalLegal"
+                      value={diagnostico.claridadFiscalLegal}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${formErrors.claridadFiscalLegal ? "border-red-500" : "border-gray-300"
+                        }`}
+                    >
+                      <option value="">Selecciona una opción</option>
+                      <option value="Totalmente al día y asesorado">
+                        Totalmente al día y asesorado
+                      </option>
+                      <option value="Casi al día, pero con algunas dudas">
+                        Casi al día, pero con algunas dudas
+                      </option>
+                      <option value="Desconocimiento o incumplimiento">
+                        Desconocimiento o incumplimiento
+                      </option>
+                    </select>
                     {formErrors.claridadFiscalLegal && (
-                      <p className="text-red-500 text-sm mt-1">
+                      <p className="text-red-500 text-xs mt-1">
                         {formErrors.claridadFiscalLegal}
                       </p>
                     )}
                   </div>
-
-                  {/* Pregunta 30 */}
-                  <div className="mb-4">
-                    <label className="block mb-2 text-gray-600 font-medium">
-                      30.&nbsp;¿Cuentas con contratos, políticas internas o manuales
-                      actualizados? *
+                  <div className="form-group">
+                    <label
+                      htmlFor="contratosPoliticas"
+                      className="block text-gray-700 text-sm font-semibold mb-2"
+                    >
+                      Contratos y Políticas Internas/Externas
                     </label>
-                    <div className="space-y-2">
-                      {[
-                        "No tengo nada",
-                        "Tengo algunos contratos sin actualizar",
-                        "Cuento con contratos y políticas básicas",
-                        "Tengo todo actualizado y revisado por especialistas",
-                      ].map((contrato) => (
-                        <label key={contrato} className="flex items-center">
-                          <input
-                            type="radio"
-                            name="contratosPoliticas"
-                            value={contrato}
-                            checked={diagnostico.contratosPoliticas === contrato}
-                            onChange={handleChange}
-                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                          />
-                          <span className="text-gray-600">{contrato}</span>
-                        </label>
-                      ))}
-                    </div>
+                    <select
+                      id="contratosPoliticas"
+                      name="contratosPoliticas"
+                      value={diagnostico.contratosPoliticas}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${formErrors.contratosPoliticas ? "border-red-500" : "border-gray-300"
+                        }`}
+                    >
+                      <option value="">Selecciona una opción</option>
+                      <option value="Todos los contratos y políticas en regla">
+                        Todos los contratos y políticas en regla
+                      </option>
+                      <option value="Algunos contratos o políticas pendientes">
+                        Algunos contratos o políticas pendientes
+                      </option>
+                      <option value="Pocos o ningún contrato/política">
+                        Pocos o ningún contrato/política
+                      </option>
+                    </select>
                     {formErrors.contratosPoliticas && (
-                      <p className="text-red-500 text-sm mt-1">
+                      <p className="text-red-500 text-xs mt-1">
                         {formErrors.contratosPoliticas}
                       </p>
                     )}
@@ -1545,45 +1901,27 @@ const DiagnosticoEmpresarial = () => {
               )}
             </div>
 
-            {/* Botones de acción */}
-            <div className="flex justify-center space-x-4 mt-8">
+            {/* Submit Button */}
+            <div className="mt-10 flex justify-center">
               <button
-                onClick={submitDiagnostico}
-                className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 transition duration-300"
+                type="submit"
+                className="bg-blue-600 text-white px-8 py-4 rounded-lg text-xl font-semibold hover:bg-blue-700 transition duration-300 shadow-xl flex items-center justify-center"
+                disabled={isLoading}
               >
-                {editingKey ? "Actualizar Diagnóstico" : "Guardar Diagnóstico"}
-              </button>
-              <button
-                onClick={() => {
-                  setShowForm(false);
-                  setEditingKey(null);
-                  setDiagnostico(initialDiagnostico);
-                  setFormErrors({});
-                }}
-                className="bg-gray-400 text-white px-8 py-3 rounded-lg hover:bg-gray-500 transition duration-300"
-              >
-                Cancelar
+                {isLoading ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-3 h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Analizando...
+                  </>
+                ) : (
+                  "Enviar Diagnóstico y Obtener Análisis"
+                )}
               </button>
             </div>
-          </div>
-        )}
-
-        {/* Vista detallada del diagnóstico seleccionado */}
-        {selectedDiagnostico && !showForm && (
-          <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-200 animate__animated animate__fadeIn">
-            <h2 className="text-3xl font-bold mb-4 text-center text-gray-800">
-              Detalle del Diagnóstico
-            </h2>
-            <p className="text-gray-700 mb-2">
-              <span className="font-semibold">Fecha:</span>{" "}
-              {new Date(selectedDiagnostico.createdAt).toLocaleString()}
-            </p>
-            <p className="text-gray-700 mb-2">
-              <span className="font-semibold">Nombre:</span>{" "}
-              {selectedDiagnostico.nombreCompleto}
-            </p>
-            {/* Agrega aquí más campos si deseas mostrarlos */}
-          </div>
+          </form>
         )}
       </div>
     </PrivateLayout>
