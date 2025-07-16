@@ -1,212 +1,161 @@
 // pages/index.tsx
 import Link from 'next/link';
 import { useAuth } from '../hooks/useAuth';
-import PublicLayout from '../components/layout/PublicLayout';
+import HomePageLayout from '../components/layout/HomePageLayout'; // Importa el nuevo layout
 import { useRouter } from 'next/router';
-import { useState } from 'react';
+import { FaChartLine, FaBriefcase, FaUser, FaLightbulb, FaRocket } from 'react-icons/fa'; // Se añadió FaRocket
+
+// Importar el widget del chatbot
+import ChatbotWidget from '../components/ChatbotWidget';
 
 const Home = () => {
   const { user } = useAuth();
   const router = useRouter();
-  const [chatInput, setChatInput] = useState('');
-  const [chatMessages, setChatMessages] = useState<{ text: string; sender: string }[]>([
-    { text: '¡Hola! Soy Grok, tu asistente en MentorApp. ¿En qué puedo ayudarte hoy? Puedo sugerirte servicios como asesorías, cursos, diagnósticos o el marketplace.', sender: 'assistant' },
-  ]);
-  const [isLoading, setIsLoading] = useState(false);
 
+  // Función para manejar la navegación a rutas protegidas
   const handleProtectedLink = (path: string) => {
     if (!user) {
-      router.push('/login');
+      router.push('/login'); // Redirige al login si el usuario no está autenticado
     } else {
-      router.push(path);
-    }
-  };
-
-  const handleChatSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!chatInput.trim()) return;
-
-    // Agregar mensaje del usuario al chat
-    const newMessage = { text: chatInput, sender: 'user' };
-    setChatMessages((prev) => [...prev, newMessage]);
-    setChatInput('');
-    setIsLoading(true);
-
-    try {
-      // Hacer solicitud al backend del chatbot
-      const response = await fetch('/api/chatbot', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message: chatInput, messages: chatMessages }),
-      });
-
-      const data = await response.json();
-      if (response.ok) {
-        // Agregar respuesta del chatbot al chat
-        setChatMessages((prev) => [...prev, { text: data.reply, sender: 'assistant' }]);
-      } else {
-        setChatMessages((prev) => [...prev, { text: 'Lo siento, hubo un error al procesar tu mensaje.', sender: 'assistant' }]);
-      }
-    } catch (error) {
-      setChatMessages((prev) => [...prev, { text: 'Error al conectar con el chatbot. Intenta de nuevo más tarde.', sender: 'assistant' }]);
-    } finally {
-      setIsLoading(false);
+      router.push(path); // Navega a la ruta si el usuario está autenticado
     }
   };
 
   return (
-    <PublicLayout>
-      {/* Hero Section */}
-      <section className="relative bg-gradient-to-r from-blue-600 to-blue-800 text-white py-20 text-center overflow-hidden">
-        <div className="max-w-4xl mx-auto relative z-10">
-          <h1 className="text-5xl font-bold mb-4 animate-fade-in">Impulsa tu Negocio con MentorApp</h1>
-          <p className="text-xl mb-8 animate-fade-in animation-delay-200">
-            Conecta con mentores, accede a cursos y descubre oportunidades en nuestro marketplace.
+    <HomePageLayout> {/* Usamos el nuevo layout que incluye la barra de anuncios */}
+      {/* Hero Section - Sección principal de bienvenida */}
+      <section className="relative bg-blue-700 text-white py-28 md:py-40 text-center overflow-hidden shadow-md">
+        <div className="max-w-6xl mx-auto relative z-10 px-6">
+          <h1 className="text-5xl md:text-7xl font-extrabold mb-6 leading-tight animate-fade-in-up">
+            MentorApp: Tu Plataforma para la <span className="text-blue-200">Innovación Empresarial</span>
+          </h1>
+          <p className="text-xl md:text-2xl mb-12 max-w-4xl mx-auto opacity-90 animate-fade-in animation-delay-300">
+            Conecta con una red de expertos globales, accede a herramientas estratégicas y desbloquea el potencial de crecimiento de tu proyecto.
           </p>
-          <button
-            onClick={() => router.push(user ? '/dashboard/inicio' : '/register')}
-            className="bg-yellow-500 text-gray-800 px-8 py-4 rounded-full text-lg font-semibold hover:bg-yellow-400 transition transform hover:scale-105"
-          >
-            {user ? 'Ir al Dashboard' : 'Regístrate Ahora'}
-          </button>
+          <div className="flex flex-col sm:flex-row justify-center gap-6">
+            <button
+              onClick={() => router.push(user ? '/dashboard/inicio' : '/register')}
+              className="bg-white text-blue-700 px-12 py-5 rounded-md text-xl font-bold hover:bg-gray-100 transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg focus:outline-none focus:ring-4 focus:ring-blue-300 focus:ring-opacity-75"
+            >
+              {user ? 'Acceder a mi Panel' : 'Comienza Gratis'}
+            </button>
+            <Link href="/about"
+              className="bg-transparent border-2 border-white text-white px-12 py-5 rounded-md text-xl font-bold hover:bg-white hover:text-blue-700 transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg focus:outline-none focus:ring-4 focus:ring-white focus:ring-opacity-75"
+            >
+              Conoce Nuestra Propuesta
+            </Link>
+          </div>
         </div>
-        <div className="absolute inset-0 bg-blue-900 opacity-50"></div>
       </section>
 
-      {/* Diagnósticos Section */}
-      <section className="py-16 bg-gray-50">
-        <div className="max-w-6xl mx-auto text-center">
-          <h2 className="text-3xl font-bold text-gray-800 mb-8">Evalúa tu Negocio</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl transition transform hover:-translate-y-1">
-              <h3 className="text-2xl font-semibold text-gray-800 mb-4">Diagnóstico Básico</h3>
-              <p className="text-gray-600 mb-6">
-                Ideal para emprendedores que están comenzando. Evalúa los fundamentos de tu negocio.
+      {/* Sección de Propuesta de Valor */}
+      <section className="py-20 bg-white text-gray-800">
+        <div className="max-w-6xl mx-auto text-center px-6">
+          <h2 className="text-4xl md:text-5xl font-bold mb-8 leading-tight">Potencia tu Proyecto con Expertos</h2>
+          <p className="text-lg md:text-xl mb-16 max-w-3xl mx-auto text-gray-600">
+            En MentorApp, te ofrecemos una suite de soluciones integrales para cada fase de tu desarrollo empresarial, desde la ideación hasta la expansión global.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+            <div className="flex flex-col items-center p-8 bg-gray-50 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 border border-gray-100">
+              <FaChartLine className="text-6xl text-blue-500 mb-6" />
+              <h3 className="text-2xl font-semibold mb-4 text-gray-800">Análisis Estratégico</h3>
+              <p className="text-gray-600 text-center leading-relaxed">Diagnostica con precisión tu negocio e identifica oportunidades clave para un crecimiento sostenido.</p>
+            </div>
+            <div className="flex flex-col items-center p-8 bg-gray-50 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 border border-gray-100">
+              <FaBriefcase className="text-6xl text-blue-500 mb-6" />
+              <h3 className="text-2xl font-semibold mb-4 text-gray-800">Mentoría de Alto Impacto</h3>
+              <p className="text-gray-600 text-center leading-relaxed">Recibe acompañamiento personalizado de líderes sectoriales para superar retos y alcanzar tus metas.</p>
+            </div>
+            <div className="flex flex-col items-center p-8 bg-gray-50 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 border border-gray-100">
+              <FaLightbulb className="text-6xl text-blue-500 mb-6" />
+              <h3 className="text-2xl font-semibold mb-4 text-gray-800">Capacitación Especializada</h3>
+              <p className="text-gray-600 text-center leading-relaxed">Accede a una biblioteca de cursos y recursos para desarrollar habilidades críticas y mantener tu ventaja competitiva.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Sección de Diagnósticos Estratégicos */}
+      <section className="py-20 bg-blue-50 text-gray-800 shadow-inner">
+        <div className="max-w-6xl mx-auto text-center px-6">
+          <h2 className="text-4xl md:text-5xl font-bold mb-8">Diagnósticos para la Toma de Decisiones</h2>
+          <p className="text-lg md:text-xl text-gray-600 mb-16 max-w-3xl mx-auto">
+            Herramientas robustas para evaluar la salud de tu negocio, identificar áreas de mejora y fundamentar tus estrategias de crecimiento.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+            <div className="bg-white p-10 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 flex flex-col items-center border border-blue-100">
+              <FaChartLine className="text-7xl text-blue-600 mb-8" />
+              <h3 className="text-3xl font-bold text-gray-800 mb-4">Análisis Fundacional</h3>
+              <p className="text-gray-600 mb-10 text-center leading-relaxed text-lg">
+                Ideal para **startups y PYMES**. Evalúa la infraestructura y el potencial de mercado para una base sólida.
               </p>
               <button
                 onClick={() => handleProtectedLink('/dashboard/diagnostico/basico')}
-                className="bg-blue-600 text-white px-6 py-3 rounded-full hover:bg-blue-700 transition"
+                className="bg-blue-600 text-white px-10 py-4 rounded-md text-lg font-semibold hover:bg-blue-700 transition-all duration-300 transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-4 focus:ring-blue-300 focus:ring-opacity-75 w-full md:w-auto"
               >
-                Realizar Diagnóstico
+                Inicia tu Evaluación
               </button>
             </div>
-            <div className="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl transition transform hover:-translate-y-1">
-              <h3 className="text-2xl font-semibold text-gray-800 mb-4">Diagnóstico Empresarial</h3>
-              <p className="text-gray-600 mb-6">
-                Perfecto para empresas establecidas que buscan crecer y optimizar.
+            <div className="bg-white p-10 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 flex flex-col items-center border border-blue-100">
+              <FaBriefcase className="text-7xl text-blue-600 mb-8" />
+              <h3 className="text-3xl font-bold text-gray-800 mb-4">Diagnóstico Corporativo Avanzado</h3>
+              <p className="text-gray-600 mb-10 text-center leading-relaxed text-lg">
+                Diseñado para **empresas en expansión**. Optimiza procesos, diversifica mercados y maximiza la rentabilidad.
               </p>
               <button
                 onClick={() => handleProtectedLink('/dashboard/diagnostico/empresarial')}
-                className="bg-blue-600 text-white px-6 py-3 rounded-full hover:bg-blue-700 transition"
+                className="bg-blue-600 text-white px-10 py-4 rounded-md text-lg font-semibold hover:bg-blue-700 transition-all duration-300 transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-4 focus:ring-blue-300 focus:ring-opacity-75 w-full md:w-auto"
               >
-                Realizar Diagnóstico
+                Accede al Diagnóstico Pro
               </button>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Asesoría Section */}
-      <section className="py-16">
-        <div className="max-w-6xl mx-auto text-center">
-          <h2 className="text-3xl font-bold text-gray-800 mb-8">Conecta con Mentores Expertos</h2>
-          <p className="text-gray-600 mb-6">
-            Recibe asesoría personalizada de profesionales con experiencia en tu industria.
+      {/* Sección de Aceleración y Desarrollo */}
+      <section className="py-20 bg-white text-gray-800 text-center">
+        <div className="max-w-4xl mx-auto px-6">
+          <h2 className="text-4xl md:text-5xl font-bold mb-8">Acelera tu Desarrollo Profesional</h2>
+          <p className="text-lg md:text-xl mb-12 text-gray-600">
+            Conecta con una élite de mentores y sumérgete en programas de formación de vanguardia diseñados para catapultar tu carrera y tu negocio.
           </p>
-          <button
-            onClick={() => handleProtectedLink('/dashboard/asesoria')}
-            className="bg-purple-600 text-white px-6 py-3 rounded-full hover:bg-purple-700 transition transform hover:scale-105"
-          >
-            Explorar Asesorías
-          </button>
+          <div className="flex flex-col sm:flex-row justify-center gap-6">
+            <button
+              onClick={() => handleProtectedLink('/dashboard/asesoria')}
+              className="bg-blue-600 text-white px-10 py-4 rounded-md text-lg font-semibold hover:bg-blue-700 transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-md focus:outline-none focus:ring-4 focus:ring-blue-300 focus:ring-opacity-75"
+            >
+              <FaUser className="inline-block mr-3 text-xl" /> Solicitar Mentoría
+            </button>
+            <button
+              onClick={() => handleProtectedLink('/dashboard/cursos')}
+              className="bg-blue-600 text-white px-10 py-4 rounded-md text-lg font-semibold hover:bg-blue-700 transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-md focus:outline-none focus:ring-4 focus:ring-blue-300 focus:ring-opacity-75"
+            >
+              <FaRocket className="inline-block mr-3 text-xl" /> Explorar Programas
+            </button>
+          </div>
         </div>
       </section>
 
-      {/* Cursos Section */}
-      <section className="py-16 bg-gray-50">
-        <div className="max-w-6xl mx-auto text-center">
-          <h2 className="text-3xl font-bold text-gray-800 mb-8">Aprende con Nuestros Cursos</h2>
-          <p className="text-gray-600 mb-6">
-            Mejora tus habilidades con cursos en línea diseñados para emprendedores y empresas.
-          </p>
-          <button
-            onClick={() => handleProtectedLink('/dashboard/cursos')}
-            className="bg-green-600 text-white px-6 py-3 rounded-full hover:bg-green-700 transition transform hover:scale-105"
-          >
-            Ver Cursos
-          </button>
-        </div>
-      </section>
-
-      {/* Marketplace Section */}
-      <section className="py-16">
-        <div className="max-w-6xl mx-auto text-center">
-          <h2 className="text-3xl font-bold text-gray-800 mb-8">Descubre el Marketplace</h2>
-          <p className="text-gray-600 mb-6">
-            Un tianguis de consultores y empresas donde puedes encontrar servicios y oportunidades.
+      {/* Sección de Ecosistema de Oportunidades */}
+      <section className="py-20 bg-blue-50 text-gray-800">
+        <div className="max-w-6xl mx-auto text-center px-6">
+          <h2 className="text-4xl md:text-5xl font-bold mb-8">El Ecosistema Comercial de MentorApp</h2>
+          <p className="text-lg md:text-xl text-gray-600 mb-16 max-w-3xl mx-auto">
+            Un dinámico marketplace donde empresas y emprendedores convergen para ofrecer y encontrar servicios estratégicos, productos innovadores y alianzas de valor.
           </p>
           <button
             onClick={() => handleProtectedLink('/dashboard/marketplace')}
-            className="bg-orange-600 text-white px-6 py-3 rounded-full hover:bg-orange-700 transition transform hover:scale-105"
+            className="bg-blue-600 text-white px-12 py-5 rounded-md text-xl font-bold hover:bg-blue-700 transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-md focus:outline-none focus:ring-4 focus:ring-blue-300 focus:ring-opacity-75"
           >
-            Visitar Marketplace
+            Descubre Oportunidades
           </button>
         </div>
       </section>
 
-      {/* Chatbot Section */}
-      <section className="py-16 bg-gray-50">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">
-            ¿No Sabes por Dónde Empezar? ¡Pregúntale a Grok!
-          </h2>
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-2xl mx-auto">
-            <div className="h-96 overflow-y-auto mb-4 p-4 border border-gray-200 rounded-lg">
-              {chatMessages.map((message, index) => (
-                <div
-                  key={index}
-                  className={`mb-4 ${
-                    message.sender === 'user' ? 'text-right' : 'text-left'
-                  }`}
-                >
-                  <span
-                    className={`inline-block p-3 rounded-lg ${
-                      message.sender === 'user'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-200 text-gray-800'
-                    }`}
-                  >
-                    {message.text}
-                  </span>
-                </div>
-              ))}
-              {isLoading && (
-                <div className="text-center text-gray-500">Cargando...</div>
-              )}
-            </div>
-            <form onSubmit={handleChatSubmit} className="flex gap-2">
-              <input
-                type="text"
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                className="flex-1 p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Escribe tu mensaje aquí..."
-                disabled={isLoading}
-              />
-              <button
-                type="submit"
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
-                disabled={isLoading}
-              >
-                Enviar
-              </button>
-            </form>
-          </div>
-        </div>
-      </section>
-    </PublicLayout>
+      {/* Renderiza el ChatbotWidget flotante en la esquina inferior derecha */}
+      <ChatbotWidget />
+    </HomePageLayout>
   );
 };
 

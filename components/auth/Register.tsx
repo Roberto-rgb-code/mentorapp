@@ -11,10 +11,10 @@ import {
   User,
 } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
-import { auth, db } from "../../lib/firebase";
+import { auth, db } from "../../lib/firebase"; // Make sure auth and db are correctly initialized and exported here
 import { FaGoogle, FaFacebook, FaApple } from "react-icons/fa";
 
-// Lista de roles habilitados para registro
+// --- Constants ---
 const ROLES_FINAL = [
   {
     value: "emprendedor",
@@ -56,37 +56,44 @@ const INITIAL_USER_DATA = {
   privacyConsent: false,
 };
 
+// --- Main Register Component ---
 const Register = () => {
   const [step, setStep] = useState(1);
   const [role, setRole] = useState("");
   const [userData, setUserData] = useState({ ...INITIAL_USER_DATA });
+  const [error, setError] = useState("");
+  const router = useRouter();
 
-  // Empresario/empresa/universidad/gobierno (campos base)
+  // --- State for Emprendedor/Empresa/Universidad/Gobierno (common fields) ---
   const [motivation, setMotivation] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [businessRelationship, setBusinessRelationship] = useState("");
   const [businessStage, setBusinessStage] = useState("");
   const [mainChallenge, setMainChallenge] = useState("");
   const [goals, setGoals] = useState<string[]>([]);
-  const [otherGoal, setOtherGoal] = useState("");
+  const [otherGoal, setOtherGoal] = useState(""); // For "Otro" goal
   const [previousAdvisory, setPreviousAdvisory] = useState("");
   const [supportAreas, setSupportAreas] = useState<string[]>([]);
+  const [otherSupportArea, setOtherSupportArea] = useState(""); // For "Otro" support area
 
-  // Consultor
+  // --- State for Consultor ---
   const [ultimoGrado, setUltimoGrado] = useState("");
-  const [otroGrado, setOtroGrado] = useState("");
+  const [otroGrado, setOtroGrado] = useState(""); // For "Otro" degree
   const [areaEstudios, setAreaEstudios] = useState("");
   const [anosExperiencia, setAnosExperiencia] = useState("");
   const [experienciaMipymes, setExperienciaMipymes] = useState("");
   const [colaboracionInstitucional, setColaboracionInstitucional] = useState("");
   const [areasExperiencia, setAreasExperiencia] = useState<string[]>([]);
+  const [otherAreaExperiencia, setOtherAreaExperiencia] = useState(""); // For "Otro" area de experiencia
   const [industrias, setIndustrias] = useState<string[]>([]);
+  const [otherIndustry, setOtherIndustry] = useState(""); // For "Otro" industry
   const [casoExito, setCasoExito] = useState("");
   const [intervencionPreferida, setIntervencionPreferida] = useState("");
-  const [otraIntervencion, setOtraIntervencion] = useState("");
+  const [otraIntervencion, setOtraIntervencion] = useState(""); // For "Otra" intervencion
   const [acompanamiento, setAcompanamiento] = useState("");
   const [modalidad, setModalidad] = useState("");
   const [herramientasDigitales, setHerramientasDigitales] = useState<string[]>([]);
+  const [otherDigitalTool, setOtherDigitalTool] = useState(""); // For "Otra" herramienta
   const [recursosPropios, setRecursosPropios] = useState("");
   const [reportesEstructurados, setReportesEstructurados] = useState("");
   const [horasSemanales, setHorasSemanales] = useState("");
@@ -95,27 +102,41 @@ const Register = () => {
   const [tarifaHora, setTarifaHora] = useState("");
   const [tarifaPaquete, setTarifaPaquete] = useState("");
   const [motivacionConsultor, setMotivacionConsultor] = useState("");
-  const [otraMotivacion, setOtraMotivacion] = useState("");
+  const [otraMotivacion, setOtraMotivacion] = useState(""); // For "Otra" motivacion
   const [curriculum, setCurriculum] = useState("");
   const [portafolio, setPortafolio] = useState("");
   const [linkedin, setLinkedin] = useState("");
   const [referencias, setReferencias] = useState("");
   const [confirmacionEntrevista, setConfirmacionEntrevista] = useState(false);
 
-  const [error, setError] = useState("");
-  const router = useRouter();
-
-  // Handle role selection directly from step 1
+  // --- Handlers ---
   const handleRoleSelection = (selectedRole: string) => {
     setRole(selectedRole);
     setStep(2); // Immediately move to the next step
     setError(""); // Clear any previous errors
   };
 
+  const handleCheckboxChange = (
+    setState: React.Dispatch<React.SetStateAction<string[]>>,
+    currentArray: string[],
+    value: string,
+    otherValueState?: string, // Used for 'Otro' textbox management
+    setOtherValueState?: React.Dispatch<React.SetStateAction<string>> // Used for 'Otro' textbox management
+  ) => {
+    if (currentArray.includes(value)) {
+      setState(currentArray.filter((item) => item !== value));
+      if (value === "Otro" && setOtherValueState) {
+        setOtherValueState(""); // Clear other text if 'Otro' is deselected
+      }
+    } else {
+      setState([...currentArray, value]);
+    }
+  };
+
   const handleNext = () => {
     setError(""); // Clear previous errors
 
-    // --- Common Validations ---
+    // --- Common Validations (Step 2: About You) ---
     if (step === 2) {
       const { fullName, email, phone, language, country, city, birthYear } = userData;
       if (!fullName || !email || !phone || !language || !country || !city || !birthYear) {
@@ -126,20 +147,26 @@ const Register = () => {
 
     // --- Role-Specific Validations ---
     if (["emprendedor", "empresa", "universidad", "gobierno"].includes(role)) {
+      // Step 3 (Paso 2: Sobre tu Negocio/Institución)
       if (step === 3 && (!motivation || !businessName || !businessRelationship || !businessStage)) {
         setError("Por favor, completa todos los campos del Paso 2: Sobre tu Negocio/Institución.");
         return;
       }
+      // Step 4 (Paso 3: Retos y Metas)
       if (step === 4) {
-        if ((goals.includes("Otro") && otherGoal.trim() === "") || (!mainChallenge || (goals.length === 0 && otherGoal.trim() === "") || !previousAdvisory)) {
+        if (!mainChallenge || goals.length === 0 || (goals.includes("Otro") && otherGoal.trim() === "") || !previousAdvisory) {
           setError("Completa los retos, metas y experiencia previa del Paso 3: Retos y Metas. Si seleccionaste 'Otro' en metas, debes especificarla.");
           return;
         }
       }
-      if (step === 5 && supportAreas.length < 1) {
-        setError("Por favor, selecciona al menos una área de apoyo en el Paso 4: Áreas de Apoyo.");
-        return;
+      // Step 5 (Paso 4: Áreas de Apoyo)
+      if (step === 5) {
+        if (supportAreas.length === 0 || (supportAreas.includes("Otro") && otherSupportArea.trim() === "")) {
+          setError("Por favor, selecciona al menos una área de apoyo en el Paso 4: Áreas de Apoyo y especifica 'Otro' si aplica.");
+          return;
+        }
       }
+      // Step 6 (Paso 5: Registro Final)
       if (step === 6) {
         if (!userData.password) {
           setError("La contraseña no puede estar vacía.");
@@ -155,45 +182,57 @@ const Register = () => {
         }
       }
     } else if (role === "consultor") {
+      // Step 3 (Paso 2: Formación y Experiencia)
       if (step === 3) {
         if (!ultimoGrado || (ultimoGrado === "Otro" && otroGrado.trim() === "") || !areaEstudios || !anosExperiencia || !experienciaMipymes || !colaboracionInstitucional) {
           setError("Por favor, completa todos los campos de formación y experiencia en el Paso 2: Formación y Experiencia. Si seleccionaste 'Otro' en grado, debes especificarlo.");
           return;
         }
       }
+      // Step 4 (Paso 3: Especialidad Profesional)
       if (step === 4) {
-        if (!casoExito || !intervencionPreferida || (intervencionPreferida === "Otro" && otraIntervencion.trim() === "") || areasExperiencia.length < 1) {
-          setError("Por favor, completa los campos de especialidad profesional en el Paso 3: Especialidad Profesional. Selecciona al menos un área de experiencia.");
+        if (areasExperiencia.length === 0 || (areasExperiencia.includes("Otro") && otherAreaExperiencia.trim() === "")) {
+          setError("Selecciona al menos un área de experiencia y especifica 'Otro' si aplica.");
+          return;
+        }
+        if (industrias.length === 0 || (industrias.includes("Otro") && otherIndustry.trim() === "")) {
+          setError("Selecciona al menos una industria y especifica 'Otro' si aplica.");
+          return;
+        }
+        if (!casoExito || !intervencionPreferida || (intervencionPreferida === "Otro" && otraIntervencion.trim() === "")) {
+          setError("Completa el caso de éxito y la intervención preferida del Paso 3: Especialidad Profesional. Si seleccionaste 'Otro' en intervención, debes especificarla.");
           return;
         }
       }
+      // Step 5 (Paso 4: Estilo y Metodología)
       if (step === 5) {
-        if (!acompanamiento || !modalidad || herramientasDigitales.length < 1 || !recursosPropios || !reportesEstructurados) {
-          setError("Por favor, completa todos los campos de estilo y metodología en el Paso 4: Estilo y Metodología.");
+        if (!acompanamiento || !modalidad || herramientasDigitales.length === 0 || (herramientasDigitales.includes("Otra") && otherDigitalTool.trim() === "") || !recursosPropios || !reportesEstructurados) {
+          setError("Por favor, completa todos los campos de estilo y metodología en el Paso 4: Estilo y Metodología y especifica 'Otra' herramienta si aplica.");
           return;
         }
       }
+      // Step 6 (Paso 5: Disponibilidad y Condiciones)
       if (step === 6) {
         if (!horasSemanales || !trabajoProyecto || !tarifaTipo || (tarifaTipo === "Por hora" && tarifaHora.trim() === "") || (tarifaTipo === "Por paquete" && tarifaPaquete.trim() === "") || !motivacionConsultor || (motivacionConsultor === "Otro" && otraMotivacion.trim() === "")) {
-          setError("Por favor, completa todos los campos de disponibilidad y condiciones en el Paso 5: Disponibilidad y Condiciones.");
+          setError("Por favor, completa todos los campos de disponibilidad y condiciones en el Paso 5: Disponibilidad y Condiciones. Si seleccionaste 'Otro' en motivación, debes especificarla.");
           return;
         }
       }
-      if (step === 7 && (!curriculum || !referencias)) {
-        setError("Por favor, completa los campos obligatorios de validaciones en el Paso 6: Validaciones (CV y Referencias).");
-        return;
+      // Step 7 (Paso 6: Validaciones)
+      if (step === 7) {
+        if (!curriculum || !referencias) { // Added basic check for curriculum and references
+          setError("Por favor, completa los campos obligatorios de validaciones en el Paso 6: Validaciones (CV y Referencias).");
+          return;
+        }
       }
+      // Step 8 (Paso 7: Registro Final)
       if (step === 8) {
-        if (!confirmacionEntrevista || !userData.privacyConsent || !userData.email || !userData.password) {
-          setError("Por favor, confirma la entrevista, acepta el aviso de privacidad y registra correo/contraseña en el Paso 7: Registro Final.");
-          return;
-        }
-        if (!userData.password) {
-          setError("La contraseña no puede estar vacía.");
-          return;
-        }
-        if (userData.password.length < 8) {
+        if (!userData.password || userData.password.length < 8) {
           setError("La contraseña debe tener al menos 8 caracteres.");
+          return;
+        }
+        if (!userData.privacyConsent || !confirmacionEntrevista) {
+          setError("Debes aceptar el aviso de privacidad/términos y confirmar tu disposición a una entrevista.");
           return;
         }
       }
@@ -208,7 +247,7 @@ const Register = () => {
     try {
       const baseData: any = {
         uid: user.uid,
-        email: user.email || userData.email,
+        email: user.email || userData.email, // Use Firebase email if available, else from form
         role,
         fullName: userData.fullName,
         phone: userData.phone,
@@ -220,18 +259,19 @@ const Register = () => {
         privacyConsent: userData.privacyConsent,
         createdAt: new Date().toISOString(),
       };
-      if (
-        ["emprendedor", "empresa", "universidad", "gobierno"].includes(role)
-      ) {
+
+      if (["emprendedor", "empresa", "universidad", "gobierno"].includes(role)) {
         Object.assign(baseData, {
           motivation,
           businessName,
           businessRelationship,
           businessStage,
           mainChallenge,
+          // Handle 'Otro' for goals
           goals: goals.includes("Otro") && otherGoal ? [...goals.filter(g => g !== "Otro"), otherGoal] : goals,
           previousAdvisory,
-          supportAreas,
+          // Handle 'Otro' for supportAreas
+          supportAreas: supportAreas.includes("Otro") && otherSupportArea ? [...supportAreas.filter(sa => sa !== "Otro"), otherSupportArea] : supportAreas,
         });
       } else if (role === "consultor") {
         Object.assign(baseData, {
@@ -240,17 +280,21 @@ const Register = () => {
           anosExperiencia,
           experienciaMipymes,
           colaboracionInstitucional,
-          areasExperiencia,
-          industrias,
+          // Handle 'Otro' for areasExperiencia
+          areasExperiencia: areasExperiencia.includes("Otro") && otherAreaExperiencia ? [...areasExperiencia.filter(ae => ae !== "Otro"), otherAreaExperiencia] : areasExperiencia,
+          // Handle 'Otro' for industrias
+          industrias: industrias.includes("Otro") && otherIndustry ? [...industrias.filter(ind => ind !== "Otro"), otherIndustry] : industrias,
           casoExito,
           intervencionPreferida: intervencionPreferida === "Otro" ? otraIntervencion : intervencionPreferida,
           acompanamiento,
           modalidad,
-          herramientasDigitales,
+          // Handle 'Otra' for herramientasDigitales
+          herramientasDigitales: herramientasDigitales.includes("Otra") && otherDigitalTool ? [...herramientasDigitales.filter(hd => hd !== "Otra"), otherDigitalTool] : herramientasDigitales,
           recursosPropios,
           reportesEstructurados,
           horasSemanales,
           trabajoProyecto,
+          // Dynamically set tarifa based on type
           tarifa: tarifaTipo === "Por hora" ? tarifaHora : tarifaTipo === "Por paquete" ? tarifaPaquete : "Ajustable",
           motivacion: motivacionConsultor === "Otro" ? otraMotivacion : motivacionConsultor,
           curriculum,
@@ -262,36 +306,55 @@ const Register = () => {
       }
       await setDoc(doc(db, "users", user.uid), baseData);
     } catch (err: any) {
-      setError("Error al guardar tus datos. Intenta de nuevo.");
+      console.error("Error saving user data to Firestore:", err);
+      setError("Error al guardar tus datos adicionales. Intenta de nuevo.");
     }
   };
 
   const handleRegister = async () => {
     // Re-run final step validation before registering
-    if (
-      (["emprendedor", "empresa", "universidad", "gobierno"].includes(role) && step === 6) ||
-      (role === "consultor" && step === 8)
-    ) {
-      if (!userData.password || userData.password.length < 8) {
-        setError("La contraseña debe tener al menos 8 caracteres.");
-        return;
-      }
-      if (!userData.privacyConsent) {
-        setError("Debes aceptar el aviso de privacidad y los términos de uso.");
-        return;
-      }
-      if (role === "consultor" && !confirmacionEntrevista) {
-        setError("Debes confirmar tu disposición a una entrevista inicial.");
-        return;
-      }
+    const totalSteps = getMaxSteps();
+    if (step < totalSteps) { // If not on the last step, don't try to register yet
+      setError("Por favor, completa todos los pasos antes de registrarte.");
+      return;
     }
 
+    setError(""); // Clear any previous errors before attempting registration
+
     try {
+      // This is the primary point where network failures occur for email/password
       const userCredential = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
-      await saveUserData(userCredential.user);
-      router.push("/dashboard/inicio");
+
+      // Ensure user object exists after successful auth operation
+      if (userCredential.user) {
+        await saveUserData(userCredential.user);
+        router.push("/dashboard/inicio");
+      } else {
+        // This case should theoretically not happen with createUserWithEmailAndPassword if no error was thrown
+        // It might indicate an unexpected partial success from Firebase, though rare.
+        setError("Error inesperado: No se pudo obtener la información del usuario después del registro.");
+        // Optionally, consider logging out the user if a partial state is detected
+        // await auth.signOut();
+      }
+
     } catch (err: any) {
-      setError(err.message || "Error al registrarse. Verifica tus datos.");
+      console.error("Firebase Auth Error during registration:", err.code, err.message);
+      // More specific error messages for the user
+      if (err.code === 'auth/network-request-failed') {
+        setError("Problema de conexión: Asegúrate de tener internet estable y revisa tu firewall o VPN.");
+      } else if (err.code === 'auth/email-already-in-use') {
+        // As discussed, if this error is received, the user IS NOT created/logged in by this call.
+        // So, access SHOULD NOT have been granted.
+        setError("El correo electrónico ya está registrado. Por favor, inicia sesión o usa un correo diferente.");
+        // IMPORTANT: DO NOT redirect to dashboard here.
+      } else if (err.code === 'auth/invalid-email') {
+        setError("El formato del correo electrónico es inválido.");
+      } else if (err.code === 'auth/weak-password') {
+        setError("La contraseña es demasiado débil (mínimo 8 caracteres).");
+      } else {
+        // Fallback for other less common errors
+        setError(err.message || "Error al registrarse. Verifica tus datos.");
+      }
     }
   };
 
@@ -310,32 +373,61 @@ const Register = () => {
         provider.addScope("name");
         break;
       default:
+        setError("Proveedor de autenticación no reconocido.");
         return;
     }
 
+    setError(""); // Clear any previous errors before attempting social login
+
     try {
+      // This is the primary point where network failures occur for social logins
       const userCredential = await signInWithPopup(auth, provider);
-      await saveUserData(userCredential.user);
-      router.push("/dashboard/inicio");
+
+      // Ensure user object exists after successful auth operation
+      if (userCredential.user) {
+        await saveUserData(userCredential.user);
+        router.push("/dashboard/inicio");
+      } else {
+        setError("Error inesperado: No se pudo obtener la información del usuario después del inicio de sesión social.");
+        // Optionally, consider logging out the user if a partial state is detected
+        // await auth.signOut();
+      }
+
     } catch (err: any) {
-      setError(err.message || `Error al registrarse con ${providerName}.`);
+      console.error(`Firebase Auth Error with ${providerName}:`, err.code, err.message);
+      if (err.code === 'auth/network-request-failed') {
+        setError("Problema de conexión: Asegúrate de tener internet estable y revisa tu firewall o VPN.");
+      } else if (err.code === 'auth/popup-closed-by-user') {
+        setError("La ventana de inicio de sesión fue cerrada por el usuario.");
+      } else if (err.code === 'auth/cancelled-popup-request') {
+        setError("La solicitud de ventana emergente fue cancelada. Intenta de nuevo.");
+      } else if (err.code === 'auth/email-already-in-use') {
+        // For social logins, 'auth/email-already-in-use' can occur if the email
+        // associated with the social account is ALREADY linked to another
+        // Firebase authentication method (e.g., email/password or another social provider).
+        // Firebase often offers account linking in these scenarios.
+        setError("El correo electrónico de tu cuenta social ya está asociado a otra forma de inicio de sesión. Por favor, inicia sesión con esa cuenta o vincula tus cuentas.");
+      }
+      else {
+        setError(err.message || `Error al registrarse con ${providerName}.`);
+      }
     }
   };
 
   const getMaxSteps = () => {
     if (["emprendedor", "empresa", "universidad", "gobierno"].includes(role)) {
-      return 6;
+      return 6; // Role selection (1) + Common (1) + Role-specific (3) + Final Registration (1) = 6
     } else if (role === "consultor") {
-      return 8;
+      return 8; // Role selection (1) + Common (1) + Role-specific (5) + Final Registration (1) = 8
     }
-    return 1;
+    return 1; // Only role selection step
   };
 
-  // Helper function to render step indicators
   const renderStepIndicator = () => {
     const totalSteps = getMaxSteps();
-    const currentRoleSteps = role ? totalSteps - 1 : 0; // Exclude initial role selection step
-    const displayStep = role ? step - 1 : 0; // Adjust for display purposes
+    // Adjust totalSteps and current step for visual indicator (excluding initial role selection)
+    const currentRoleSteps = role ? totalSteps - 1 : 0;
+    const displayStep = role ? step - 1 : 0;
 
     return (
       <div className="flex justify-center mb-6">
@@ -350,7 +442,6 @@ const Register = () => {
       </div>
     );
   };
-
 
   const renderStep = () => {
     switch (step) {
@@ -471,12 +562,20 @@ const Register = () => {
                 />
               </div>
             </div>
-            <button
-              onClick={handleNext}
-              className="w-full bg-blue-600 text-white p-3 rounded-lg mt-6 font-semibold hover:bg-blue-700 transition duration-300 shadow-md hover:shadow-lg"
-            >
-              Siguiente
-            </button>
+            <div className="flex justify-between mt-6">
+              <button
+                onClick={handleBack}
+                className="px-6 py-3 bg-gray-300 text-gray-800 rounded-lg font-semibold hover:bg-gray-400 transition duration-300 shadow-md hover:shadow-lg"
+              >
+                Volver
+              </button>
+              <button
+                onClick={handleNext}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition duration-300 shadow-md hover:shadow-lg"
+              >
+                Siguiente
+              </button>
+            </div>
           </div>
         );
       case 3:
@@ -538,12 +637,20 @@ const Register = () => {
                   </select>
                 </div>
               </div>
-              <button
-                onClick={handleNext}
-                className="w-full bg-blue-600 text-white p-3 rounded-lg mt-6 font-semibold hover:bg-blue-700 transition duration-300 shadow-md hover:shadow-lg"
-              >
-                Siguiente
-              </button>
+              <div className="flex justify-between mt-6">
+                <button
+                  onClick={handleBack}
+                  className="px-6 py-3 bg-gray-300 text-gray-800 rounded-lg font-semibold hover:bg-gray-400 transition duration-300 shadow-md hover:shadow-lg"
+                >
+                  Volver
+                </button>
+                <button
+                  onClick={handleNext}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition duration-300 shadow-md hover:shadow-lg"
+                >
+                  Siguiente
+                </button>
+              </div>
             </div>
           );
         } else if (role === "consultor") {
@@ -598,21 +705,20 @@ const Register = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-gray-700 font-medium mb-2">Experiencia previa con MiPymes o emprendedores</label>
+                  <label className="block text-gray-700 font-medium mb-2">¿Tienes experiencia trabajando con MiPymes?</label>
                   <select
                     value={experienciaMipymes}
                     onChange={(e) => setExperienciaMipymes(e.target.value)}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 bg-white"
                   >
                     <option value="">Selecciona</option>
-                    <option value="Sí, extensiva">Sí, extensiva (más de 5 años)</option>
-                    <option value="Sí, moderada">Sí, moderada (2-5 años)</option>
-                    <option value="Sí, limitada">Sí, limitada (menos de 2 años)</option>
+                    <option value="Sí, extensiva">Sí, extensiva</option>
+                    <option value="Sí, limitada">Sí, limitada</option>
                     <option value="No">No</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-gray-700 font-medium mb-2">¿Has colaborado con instituciones educativas, gobierno o cámaras empresariales?</label>
+                  <label className="block text-gray-700 font-medium mb-2">¿Has colaborado con instituciones de apoyo empresarial o gubernamentales?</label>
                   <select
                     value={colaboracionInstitucional}
                     onChange={(e) => setColaboracionInstitucional(e.target.value)}
@@ -625,16 +731,23 @@ const Register = () => {
                   </select>
                 </div>
               </div>
-              <button
-                onClick={handleNext}
-                className="w-full bg-blue-600 text-white p-3 rounded-lg mt-6 font-semibold hover:bg-blue-700 transition duration-300 shadow-md hover:shadow-lg"
-              >
-                Siguiente
-              </button>
+              <div className="flex justify-between mt-6">
+                <button
+                  onClick={handleBack}
+                  className="px-6 py-3 bg-gray-300 text-gray-800 rounded-lg font-semibold hover:bg-gray-400 transition duration-300 shadow-md hover:shadow-lg"
+                >
+                  Volver
+                </button>
+                <button
+                  onClick={handleNext}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition duration-300 shadow-md hover:shadow-lg"
+                >
+                  Siguiente
+                </button>
+              </div>
             </div>
           );
         }
-        break;
       case 4:
         if (["emprendedor", "empresa", "universidad", "gobierno"].includes(role)) {
           return (
@@ -647,84 +760,72 @@ const Register = () => {
                     value={mainChallenge}
                     onChange={(e) => setMainChallenge(e.target.value)}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                    placeholder="Ej. Aumentar ventas, mejorar procesos, etc."
+                    placeholder="Ej. Aumentar ventas, mejorar gestión, expandirme a nuevos mercados."
                     rows={3}
                   ></textarea>
                 </div>
                 <div>
-                  <label className="block text-gray-700 font-medium mb-2">Principales metas que buscas lograr con MentorApp (selecciona todas las que apliquen)</label>
+                  <label className="block text-gray-700 font-medium mb-2">¿Qué metas esperas lograr con MentorApp? (Selecciona todas las que apliquen)</label>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {[
-                      "Crecimiento de ventas", "Optimización de procesos", "Acceso a financiamiento",
-                      "Desarrollo de nuevos productos/servicios", "Expansión a nuevos mercados",
-                      "Mejora de la estrategia de marketing", "Digitalización",
-                      "Desarrollo de liderazgo", "Gestión de equipos", "Innovación",
-                    ].map((goal) => (
-                      <label key={goal} className="flex items-center cursor-pointer p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all duration-200">
+                      "Acceso a mentoría especializada",
+                      "Desarrollo de habilidades",
+                      "Networking y comunidad",
+                      "Herramientas y recursos",
+                      "Crecimiento del negocio/institución",
+                      "Resolución de problemas específicos",
+                      "Acceso a financiamiento",
+                      "Otro",
+                    ].map((goalOption) => (
+                      <label key={goalOption} className="flex items-center cursor-pointer p-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200">
                         <input
                           type="checkbox"
-                          value={goal}
-                          checked={goals.includes(goal)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setGoals([...goals, e.target.value]);
-                            } else {
-                              setGoals(goals.filter((g) => g !== e.target.value));
-                            }
-                          }}
+                          checked={goals.includes(goalOption)}
+                          onChange={() => handleCheckboxChange(setGoals, goals, goalOption, otherGoal, setOtherGoal)}
                           className="form-checkbox h-5 w-5 text-blue-600 rounded"
                         />
-                        <span className="ml-2 text-gray-800">{goal}</span>
+                        <span className="ml-3 text-gray-800">{goalOption}</span>
                       </label>
                     ))}
-                    <label className="flex items-center cursor-pointer p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all duration-200">
-                      <input
-                        type="checkbox"
-                        value="Otro"
-                        checked={goals.includes("Otro")}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setGoals([...goals, "Otro"]);
-                          } else {
-                            setGoals(goals.filter((g) => g !== "Otro"));
-                            setOtherGoal("");
-                          }
-                        }}
-                        className="form-checkbox h-5 w-5 text-blue-600 rounded"
-                      />
-                      <span className="ml-2 text-gray-800">Otro</span>
-                    </label>
-                    {goals.includes("Otro") && (
-                      <input
-                        type="text"
-                        value={otherGoal}
-                        onChange={(e) => setOtherGoal(e.target.value)}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mt-2 col-span-full"
-                        placeholder="Especifica otra meta"
-                      />
-                    )}
                   </div>
+                  {goals.includes("Otro") && (
+                    <input
+                      type="text"
+                      value={otherGoal}
+                      onChange={(e) => setOtherGoal(e.target.value)}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mt-2"
+                      placeholder="Especifica tu otra meta"
+                    />
+                  )}
                 </div>
                 <div>
-                  <label className="block text-gray-700 font-medium mb-2">¿Has recibido mentoría o asesoría previa?</label>
+                  <label className="block text-gray-700 font-medium mb-2">¿Has recibido mentoría o asesoría empresarial previamente?</label>
                   <select
                     value={previousAdvisory}
                     onChange={(e) => setPreviousAdvisory(e.target.value)}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 bg-white"
                   >
                     <option value="">Selecciona</option>
-                    <option value="Sí, formal">Sí, formal (programas estructurados)</option>
-                    <option value="Sí, informal">Sí, informal (contactos personales)</option>
+                    <option value="Sí, formal e integral">Sí, formal e integral</option>
+                    <option value="Sí, informal o puntual">Sí, informal o puntual</option>
                     <option value="No">No</option>
                   </select>
                 </div>
               </div>
-              <button
-                onClick={handleNext}
-                className="w-full bg-blue-600 text-white p-3 rounded-lg mt-6 font-semibold hover:bg-blue-700 transition duration-300 shadow-md hover:shadow-lg"
-              >
-                Siguiente
-              </button>
+              <div className="flex justify-between mt-6">
+                <button
+                  onClick={handleBack}
+                  className="px-6 py-3 bg-gray-300 text-gray-800 rounded-lg font-semibold hover:bg-gray-400 transition duration-300 shadow-md hover:shadow-lg"
+                >
+                  Volver
+                </button>
+                <button
+                  onClick={handleNext}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition duration-300 shadow-md hover:shadow-lg"
+                >
+                  Siguiente
+                </button>
+              </div>
             </div>
           );
         } else if (role === "consultor") {
@@ -733,67 +834,88 @@ const Register = () => {
               <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">🔹 Paso 3: Especialidad Profesional</h2>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-gray-700 font-medium mb-2">Áreas de experiencia principal (selecciona al menos una)</label>
+                  <label className="block text-gray-700 font-medium mb-2">Áreas de experiencia y dominio (Selecciona todas las que apliquen)</label>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {[
-                      "Estrategia y Planificación", "Finanzas y Contabilidad", "Marketing y Ventas",
-                      "Operaciones y Logística", "Recursos Humanos", "Tecnología y Digitalización",
-                      "Innovación y Desarrollo de Producto", "Legal y Regulatorio",
-                      "Comercio Exterior", "Sustentabilidad y Responsabilidad Social",
+                      "Estrategia y Planificación",
+                      "Marketing y Ventas",
+                      "Finanzas y Contabilidad",
+                      "Operaciones y Logística",
+                      "Recursos Humanos y Talento",
+                      "Tecnología e Innovación",
+                      "Legal y Cumplimiento",
+                      "Sustentabilidad y RSE",
+                      "Exportación e Internacionalización",
+                      "Desarrollo de Producto",
+                      "Otro",
                     ].map((area) => (
-                      <label key={area} className="flex items-center cursor-pointer p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all duration-200">
+                      <label key={area} className="flex items-center cursor-pointer p-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200">
                         <input
                           type="checkbox"
-                          value={area}
                           checked={areasExperiencia.includes(area)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setAreasExperiencia([...areasExperiencia, e.target.value]);
-                            } else {
-                              setAreasExperiencia(areasExperiencia.filter((a) => a !== e.target.value));
-                            }
-                          }}
+                          onChange={() => handleCheckboxChange(setAreasExperiencia, areasExperiencia, area, otherAreaExperiencia, setOtherAreaExperiencia)}
                           className="form-checkbox h-5 w-5 text-blue-600 rounded"
                         />
-                        <span className="ml-2 text-gray-800">{area}</span>
+                        <span className="ml-3 text-gray-800">{area}</span>
                       </label>
                     ))}
                   </div>
+                  {areasExperiencia.includes("Otro") && (
+                    <input
+                      type="text"
+                      value={otherAreaExperiencia}
+                      onChange={(e) => setOtherAreaExperiencia(e.target.value)}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mt-2"
+                      placeholder="Especifica otra área de experiencia"
+                    />
+                  )}
                 </div>
                 <div>
-                  <label className="block text-gray-700 font-medium mb-2">Industrias en las que tienes experiencia (selecciona todas las que apliquen)</label>
+                  <label className="block text-gray-700 font-medium mb-2">Industrias en las que tienes experiencia (Selecciona todas las que apliquen)</label>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {[
-                      "Tecnología", "Servicios", "Manufactura", "Comercio minorista",
-                      "Alimentos y Bebidas", "Educación", "Salud", "Financiera",
-                      "Turismo", "Agroindustria", "Consultoría", "Energía",
-                    ].map((industria) => (
-                      <label key={industria} className="flex items-center cursor-pointer p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all duration-200">
+                      "Tecnología y Software",
+                      "Comercio Electrónico",
+                      "Servicios Profesionales",
+                      "Manufactura",
+                      "Retail",
+                      "Alimentos y Bebidas",
+                      "Salud y Bienestar",
+                      "Educación",
+                      "Financiera",
+                      "Turismo y Hospitalidad",
+                      "Energía",
+                      "Agronegocios",
+                      "Otro",
+                    ].map((industry) => (
+                      <label key={industry} className="flex items-center cursor-pointer p-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200">
                         <input
                           type="checkbox"
-                          value={industria}
-                          checked={industrias.includes(industria)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setIndustrias([...industrias, e.target.value]);
-                            } else {
-                              setIndustrias(industrias.filter((i) => i !== e.target.value));
-                            }
-                          }}
+                          checked={industrias.includes(industry)}
+                          onChange={() => handleCheckboxChange(setIndustrias, industrias, industry, otherIndustry, setOtherIndustry)}
                           className="form-checkbox h-5 w-5 text-blue-600 rounded"
                         />
-                        <span className="ml-2 text-gray-800">{industria}</span>
+                        <span className="ml-3 text-gray-800">{industry}</span>
                       </label>
                     ))}
                   </div>
+                  {industrias.includes("Otro") && (
+                    <input
+                      type="text"
+                      value={otherIndustry}
+                      onChange={(e) => setOtherIndustry(e.target.value)}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mt-2"
+                      placeholder="Especifica otra industria"
+                    />
+                  )}
                 </div>
                 <div>
-                  <label className="block text-gray-700 font-medium mb-2">Describe un caso de éxito relevante con un cliente o proyecto</label>
+                  <label className="block text-gray-700 font-medium mb-2">Describe un caso de éxito relevante de asesoría/mentoría que hayas liderado.</label>
                   <textarea
                     value={casoExito}
                     onChange={(e) => setCasoExito(e.target.value)}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                    placeholder="Sé conciso pero claro"
+                    placeholder="Ej. Ayudé a una PyME a aumentar sus ventas en un 30% en 6 meses mediante una nueva estrategia digital."
                     rows={3}
                   ></textarea>
                 </div>
@@ -806,9 +928,8 @@ const Register = () => {
                   >
                     <option value="">Selecciona</option>
                     <option value="Mentoría 1:1">Mentoría 1:1</option>
-                    <option value="Asesoría puntual">Asesoría puntual</option>
-                    <option value="Talleres/Capacitación">Talleres/Capacitación</option>
-                    <option value="Proyectos a largo plazo">Proyectos a largo plazo</option>
+                    <option value="Consultoría de Proyecto">Consultoría de Proyecto</option>
+                    <option value="Talleres grupales">Talleres grupales</option>
                     <option value="Otro">Otro</option>
                   </select>
                   {intervencionPreferida === "Otro" && (
@@ -817,21 +938,28 @@ const Register = () => {
                       value={otraIntervencion}
                       onChange={(e) => setOtraIntervencion(e.target.value)}
                       className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mt-2"
-                      placeholder="Especifica otra intervención"
+                      placeholder="Especifica otro tipo de intervención"
                     />
                   )}
                 </div>
               </div>
-              <button
-                onClick={handleNext}
-                className="w-full bg-blue-600 text-white p-3 rounded-lg mt-6 font-semibold hover:bg-blue-700 transition duration-300 shadow-md hover:shadow-lg"
-              >
-                Siguiente
-              </button>
+              <div className="flex justify-between mt-6">
+                <button
+                  onClick={handleBack}
+                  className="px-6 py-3 bg-gray-300 text-gray-800 rounded-lg font-semibold hover:bg-gray-400 transition duration-300 shadow-md hover:shadow-lg"
+                >
+                  Volver
+                </button>
+                <button
+                  onClick={handleNext}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition duration-300 shadow-md hover:shadow-lg"
+                >
+                  Siguiente
+                </button>
+              </div>
             </div>
           );
         }
-        break;
       case 5:
         if (["emprendedor", "empresa", "universidad", "gobierno"].includes(role)) {
           return (
@@ -839,41 +967,58 @@ const Register = () => {
               <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">🔹 Paso 4: Áreas de Apoyo</h2>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-gray-700 font-medium mb-2">¿En qué áreas te gustaría recibir apoyo? (selecciona al menos una)</label>
+                  <label className="block text-gray-700 font-medium mb-2">¿En qué áreas te gustaría recibir apoyo? (Selecciona todas las que apliquen)</label>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {[
-                      "Estrategia de Negocio", "Finanzas y Contabilidad", "Marketing Digital",
-                      "Ventas y Comercialización", "Operaciones y Logística",
-                      "Recursos Humanos y Talento", "Tecnología e Innovación",
-                      "Desarrollo de Producto/Servicio", "Internacionalización",
-                      "Aspectos Legales y Fiscales", "Sustentabilidad",
+                      "Estrategia Empresarial",
+                      "Marketing Digital",
+                      "Ventas y Clientes",
+                      "Finanzas y Contabilidad",
+                      "Operaciones y Eficiencia",
+                      "Recursos Humanos y Liderazgo",
+                      "Innovación y Tecnología",
+                      "Legal y Normativa",
+                      "Sustentabilidad y RSE",
+                      "Internacionalización",
+                      "Desarrollo de Producto/Servicio",
+                      "Otro",
                     ].map((area) => (
-                      <label key={area} className="flex items-center cursor-pointer p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all duration-200">
+                      <label key={area} className="flex items-center cursor-pointer p-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200">
                         <input
                           type="checkbox"
-                          value={area}
                           checked={supportAreas.includes(area)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSupportAreas([...supportAreas, e.target.value]);
-                            } else {
-                              setSupportAreas(supportAreas.filter((a) => a !== e.target.value));
-                            }
-                          }}
+                          onChange={() => handleCheckboxChange(setSupportAreas, supportAreas, area, otherSupportArea, setOtherSupportArea)}
                           className="form-checkbox h-5 w-5 text-blue-600 rounded"
                         />
-                        <span className="ml-2 text-gray-800">{area}</span>
+                        <span className="ml-3 text-gray-800">{area}</span>
                       </label>
                     ))}
                   </div>
+                  {supportAreas.includes("Otro") && (
+                    <input
+                      type="text"
+                      value={otherSupportArea}
+                      onChange={(e) => setOtherSupportArea(e.target.value)}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mt-2"
+                      placeholder="Especifica otra área de apoyo"
+                    />
+                  )}
                 </div>
               </div>
-              <button
-                onClick={handleNext}
-                className="w-full bg-blue-600 text-white p-3 rounded-lg mt-6 font-semibold hover:bg-blue-700 transition duration-300 shadow-md hover:shadow-lg"
-              >
-                Siguiente
-              </button>
+              <div className="flex justify-between mt-6">
+                <button
+                  onClick={handleBack}
+                  className="px-6 py-3 bg-gray-300 text-gray-800 rounded-lg font-semibold hover:bg-gray-400 transition duration-300 shadow-md hover:shadow-lg"
+                >
+                  Volver
+                </button>
+                <button
+                  onClick={handleNext}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition duration-300 shadow-md hover:shadow-lg"
+                >
+                  Siguiente
+                </button>
+              </div>
             </div>
           );
         } else if (role === "consultor") {
@@ -889,97 +1034,97 @@ const Register = () => {
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 bg-white"
                   >
                     <option value="">Selecciona</option>
-                    <option value="Directivo (guía paso a paso)">Directivo (guía paso a paso)</option>
-                    <option value="Facilitador (exploración y descubrimiento)">Facilitador (exploración y descubrimiento)</option>
-                    <option value="Híbrido">Híbrido</option>
+                    <option value="Directivo (orientación explícita)">Directivo (orientación explícita)</option>
+                    <option value="Colaborativo (trabajo conjunto)">Colaborativo (trabajo conjunto)</option>
+                    <option value="Facilitador (guiar para descubrir soluciones)">Facilitador (guiar para descubrir soluciones)</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-gray-700 font-medium mb-2">Modalidad de consultoría que ofreces</label>
+                  <label className="block text-gray-700 font-medium mb-2">Modalidad de trabajo preferida</label>
                   <select
                     value={modalidad}
                     onChange={(e) => setModalidad(e.target.value)}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 bg-white"
                   >
                     <option value="">Selecciona</option>
-                    <option value="Online">Online</option>
-                    <option value="Presencial">Presencial</option>
+                    <option value="Remoto (online)">Remoto (online)</option>
+                    <option value="Presencial (en sitio)">Presencial (en sitio)</option>
                     <option value="Híbrido">Híbrido</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-gray-700 font-medium mb-2">Herramientas digitales que utilizas habitualmente (selecciona todas las que apliquen)</label>
+                  <label className="block text-gray-700 font-medium mb-2">Herramientas digitales que utilizas con frecuencia para la colaboración (Selecciona todas las que apliquen)</label>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {[
-                      "Google Workspace", "Microsoft Office 365", "Zoom/Google Meet",
-                      "Trello/Asana", "Miro/FigJam", "CRM (Salesforce, HubSpot)",
-                      "ERP (SAP, Oracle)", "Software de contabilidad (QuickBooks)",
-                      "Herramientas de marketing (Mailchimp)", "Ninguna en particular",
-                    ].map((herramienta) => (
-                      <label key={herramienta} className="flex items-center cursor-pointer p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all duration-200">
+                      "Zoom", "Google Meet", "Microsoft Teams",
+                      "Slack", "Trello", "Asana", "Miro",
+                      "Google Drive", "Dropbox", "Otro"
+                    ].map((tool) => (
+                      <label key={tool} className="flex items-center cursor-pointer p-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200">
                         <input
                           type="checkbox"
-                          value={herramienta}
-                          checked={herramientasDigitales.includes(herramienta)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setHerramientasDigitales([...herramientasDigitales, e.target.value]);
-                            } else {
-                              setHerramientasDigitales(herramientasDigitales.filter((h) => h !== e.target.value));
-                            }
-                          }}
+                          checked={herramientasDigitales.includes(tool)}
+                          onChange={() => handleCheckboxChange(setHerramientasDigitales, herramientasDigitales, tool, otherDigitalTool, setOtherDigitalTool)}
                           className="form-checkbox h-5 w-5 text-blue-600 rounded"
                         />
-                        <span className="ml-2 text-gray-800">{herramienta}</span>
+                        <span className="ml-3 text-gray-800">{tool}</span>
                       </label>
                     ))}
                   </div>
+                  {herramientasDigitales.includes("Otra") && (
+                    <input
+                      type="text"
+                      value={otherDigitalTool}
+                      onChange={(e) => setOtherDigitalTool(e.target.value)}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mt-2"
+                      placeholder="Especifica otra herramienta digital"
+                    />
+                  )}
                 </div>
                 <div>
-                  <label className="block text-gray-700 font-medium mb-2">¿Cuentas con recursos propios (materiales, metodologías, plantillas) para tus intervenciones?</label>
-                  <div className="flex flex-wrap gap-4">
-                    {["Sí, extensivo", "Sí, limitado", "No"].map((option) => (
-                      <label key={option} className="flex items-center cursor-pointer">
-                        <input
-                          type="radio"
-                          value={option}
-                          checked={recursosPropios === option}
-                          onChange={(e) => setRecursosPropios(e.target.value)}
-                          className="form-radio h-4 w-4 text-blue-600 transition duration-150 ease-in-out"
-                        />
-                        <span className="ml-2 text-gray-800">{option}</span>
-                      </label>
-                    ))}
-                  </div>
+                  <label className="block text-gray-700 font-medium mb-2">¿Estás dispuesto a usar recursos propios (ej. plantillas, diagnósticos) durante la mentoría?</label>
+                  <select
+                    value={recursosPropios}
+                    onChange={(e) => setRecursosPropios(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 bg-white"
+                  >
+                    <option value="">Selecciona</option>
+                    <option value="Sí, activamente">Sí, activamente</option>
+                    <option value="Sí, si es necesario">Sí, si es necesario</option>
+                    <option value="No">No</option>
+                  </select>
                 </div>
                 <div>
-                  <label className="block text-gray-700 font-medium mb-2">¿Estás dispuesto(a) a generar reportes estructurados de tus intervenciones?</label>
-                  <div className="flex flex-wrap gap-4">
-                    {["Sí", "No"].map((option) => (
-                      <label key={option} className="flex items-center cursor-pointer">
-                        <input
-                          type="radio"
-                          value={option}
-                          checked={reportesEstructurados === option}
-                          onChange={(e) => setReportesEstructurados(e.target.value)}
-                          className="form-radio h-4 w-4 text-blue-600 transition duration-150 ease-in-out"
-                        />
-                        <span className="ml-2 text-gray-800">{option}</span>
-                      </label>
-                    ))}
-                  </div>
+                  <label className="block text-gray-700 font-medium mb-2">¿Estás acostumbrado a entregar reportes estructurados de avance?</label>
+                  <select
+                    value={reportesEstructurados}
+                    onChange={(e) => setReportesEstructurados(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 bg-white"
+                  >
+                    <option value="">Selecciona</option>
+                    <option value="Sí, muy acostumbrado">Sí, muy acostumbrado</option>
+                    <option value="Sí, ocasionalmente">Sí, ocasionalmente</option>
+                    <option value="No, prefiero un enfoque más informal">No, prefiero un enfoque más informal</option>
+                  </select>
                 </div>
               </div>
-              <button
-                onClick={handleNext}
-                className="w-full bg-blue-600 text-white p-3 rounded-lg mt-6 font-semibold hover:bg-blue-700 transition duration-300 shadow-md hover:shadow-lg"
-              >
-                Siguiente
-              </button>
+              <div className="flex justify-between mt-6">
+                <button
+                  onClick={handleBack}
+                  className="px-6 py-3 bg-gray-300 text-gray-800 rounded-lg font-semibold hover:bg-gray-400 transition duration-300 shadow-md hover:shadow-lg"
+                >
+                  Volver
+                </button>
+                <button
+                  onClick={handleNext}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition duration-300 shadow-md hover:shadow-lg"
+                >
+                  Siguiente
+                </button>
+              </div>
             </div>
           );
         }
-        break;
       case 6:
         if (["emprendedor", "empresa", "universidad", "gobierno"].includes(role)) {
           return (
@@ -993,49 +1138,63 @@ const Register = () => {
                     value={userData.password}
                     onChange={(e) => setUserData({ ...userData, password: e.target.value })}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                    placeholder="Contraseña (mínimo 8 caracteres)"
+                    placeholder="Mínimo 8 caracteres"
                   />
                 </div>
-                <div className="flex items-start">
+                <div className="flex items-center">
                   <input
                     type="checkbox"
                     checked={userData.privacyConsent}
                     onChange={(e) => setUserData({ ...userData, privacyConsent: e.target.checked })}
-                    className="form-checkbox h-5 w-5 text-blue-600 rounded mt-1 mr-2"
+                    className="form-checkbox h-5 w-5 text-blue-600 rounded"
                   />
-                  <label className="text-gray-700">Acepto el <a href="#" className="text-blue-600 hover:underline">aviso de privacidad</a> y los <a href="#" className="text-blue-600 hover:underline">términos de uso</a>.</label>
+                  <label className="ml-2 text-gray-800">
+                    Acepto el <a href="/aviso-privacidad" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">Aviso de Privacidad</a> y los <a href="/terminos-uso" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">Términos de Uso</a>.
+                  </label>
                 </div>
               </div>
-              {error && <p className="text-red-500 text-sm mt-4 text-center">{error}</p>}
-              <button
-                onClick={handleRegister}
-                className="w-full bg-green-600 text-white p-3 rounded-lg mt-6 font-semibold hover:bg-green-700 transition duration-300 shadow-md hover:shadow-lg"
-              >
-                Registrarme
-              </button>
-              <div className="mt-8 text-center">
-                <p className="text-gray-600 mb-4 font-medium">O regístrate con:</p>
-                <div className="flex justify-center space-x-6">
+              {error && (
+                <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm text-center">
+                  {error}
+                </div>
+              )}
+              <div className="flex justify-between mt-6">
+                <button
+                  onClick={handleBack}
+                  className="px-6 py-3 bg-gray-300 text-gray-800 rounded-lg font-semibold hover:bg-gray-400 transition duration-300 shadow-md hover:shadow-lg"
+                >
+                  Volver
+                </button>
+                <button
+                  onClick={handleRegister}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition duration-300 shadow-md hover:shadow-lg"
+                >
+                  Registrarme
+                </button>
+              </div>
+              <div className="mt-6 text-center text-gray-600">
+                <p className="mb-4">O regístrate con:</p>
+                <div className="flex justify-center space-x-4">
                   <button
                     onClick={() => handleSocialLogin("google")}
-                    className="flex items-center justify-center p-3 border border-gray-300 rounded-full bg-white shadow-sm hover:bg-gray-50 transform hover:scale-105 transition-all duration-200"
-                    aria-label="Registrarse con Google"
+                    className="flex items-center justify-center p-3 border border-gray-300 rounded-full shadow-md hover:shadow-lg transition duration-300"
+                    aria-label="Regístrate con Google"
                   >
-                    <FaGoogle className="text-2xl text-red-500" />
+                    <FaGoogle className="w-6 h-6 text-red-500" />
                   </button>
                   <button
                     onClick={() => handleSocialLogin("facebook")}
-                    className="flex items-center justify-center p-3 border border-gray-300 rounded-full bg-white shadow-sm hover:bg-gray-50 transform hover:scale-105 transition-all duration-200"
-                    aria-label="Registrarse con Facebook"
+                    className="flex items-center justify-center p-3 border border-gray-300 rounded-full shadow-md hover:shadow-lg transition duration-300"
+                    aria-label="Regístrate con Facebook"
                   >
-                    <FaFacebook className="text-2xl text-blue-600" />
+                    <FaFacebook className="w-6 h-6 text-blue-600" />
                   </button>
                   <button
                     onClick={() => handleSocialLogin("apple")}
-                    className="flex items-center justify-center p-3 border border-gray-300 rounded-full bg-white shadow-sm hover:bg-gray-50 transform hover:scale-105 transition-all duration-200"
-                    aria-label="Registrarse con Apple"
+                    className="flex items-center justify-center p-3 border border-gray-300 rounded-full shadow-md hover:shadow-lg transition duration-300"
+                    aria-label="Regístrate con Apple"
                   >
-                    <FaApple className="text-2xl text-gray-800" />
+                    <FaApple className="w-6 h-6 text-gray-800" />
                   </button>
                 </div>
               </div>
@@ -1047,44 +1206,45 @@ const Register = () => {
               <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">🔹 Paso 5: Disponibilidad y Condiciones</h2>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-gray-700 font-medium mb-2">Horas semanales disponibles para MentorApp</label>
+                  <label className="block text-gray-700 font-medium mb-2">Horas semanales disponibles para mentoría/consultoría</label>
                   <input
                     type="number"
                     value={horasSemanales}
                     onChange={(e) => setHorasSemanales(e.target.value)}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
                     placeholder="Ej. 5"
-                    min="0"
+                    min="1"
+                    max="40"
                   />
                 </div>
                 <div>
-                  <label className="block text-gray-700 font-medium mb-2">¿Estás abierto(a) a proyectos a largo plazo?</label>
-                  <div className="flex flex-wrap gap-4">
-                    {["Sí", "No", "Depende del proyecto"].map((option) => (
-                      <label key={option} className="flex items-center cursor-pointer">
-                        <input
-                          type="radio"
-                          value={option}
-                          checked={trabajoProyecto === option}
-                          onChange={(e) => setTrabajoProyecto(e.target.value)}
-                          className="form-radio h-4 w-4 text-blue-600 transition duration-150 ease-in-out"
-                        />
-                        <span className="ml-2 text-gray-800">{option}</span>
-                      </label>
-                    ))}
-                  </div>
+                  <label className="block text-gray-700 font-medium mb-2">¿Estás dispuesto a trabajar en proyectos específicos o por horas?</label>
+                  <select
+                    value={trabajoProyecto}
+                    onChange={(e) => setTrabajoProyecto(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 bg-white"
+                  >
+                    <option value="">Selecciona</option>
+                    <option value="Ambos">Ambos</option>
+                    <option value="Solo por proyecto">Solo por proyecto</option>
+                    <option value="Solo por horas">Solo por horas</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block text-gray-700 font-medium mb-2">Tipo de tarifa preferida</label>
                   <select
                     value={tarifaTipo}
-                    onChange={(e) => setTarifaTipo(e.target.value)}
+                    onChange={(e) => {
+                      setTarifaTipo(e.target.value);
+                      if (e.target.value !== "Por hora") setTarifaHora(""); // Clear if not hourly
+                      if (e.target.value !== "Por paquete") setTarifaPaquete(""); // Clear if not package
+                    }}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 bg-white"
                   >
                     <option value="">Selecciona</option>
                     <option value="Por hora">Por hora</option>
                     <option value="Por paquete">Por paquete</option>
-                    <option value="Ajustable">Ajustable según proyecto</option>
+                    <option value="Ajustable">Ajustable según el proyecto</option>
                   </select>
                   {tarifaTipo === "Por hora" && (
                     <input
@@ -1092,7 +1252,7 @@ const Register = () => {
                       value={tarifaHora}
                       onChange={(e) => setTarifaHora(e.target.value)}
                       className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mt-2"
-                      placeholder="Tarifa por hora (ej. $50 USD/hr)"
+                      placeholder="Tarifa por hora (Ej. $50 USD)"
                     />
                   )}
                   {tarifaTipo === "Por paquete" && (
@@ -1101,22 +1261,23 @@ const Register = () => {
                       value={tarifaPaquete}
                       onChange={(e) => setTarifaPaquete(e.target.value)}
                       className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mt-2"
-                      placeholder="Tarifa por paquete (ej. $500 USD por proyecto)"
+                      placeholder="Tarifa por paquete (Ej. $500 USD por 10 horas)"
                     />
                   )}
                 </div>
                 <div>
-                  <label className="block text-gray-700 font-medium mb-2">Principal motivación para unirte a MentorApp</label>
+                  <label className="block text-gray-700 font-medium mb-2">¿Cuál es tu principal motivación para unirte a MentorApp como consultor?</label>
                   <select
                     value={motivacionConsultor}
                     onChange={(e) => setMotivacionConsultor(e.target.value)}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 bg-white"
                   >
                     <option value="">Selecciona</option>
-                    <option value="Generar ingresos adicionales">Generar ingresos adicionales</option>
+                    <option value="Impacto social">Impacto social</option>
+                    <option value="Ingresos adicionales">Ingresos adicionales</option>
+                    <option value="Networking con emprendedores">Networking con emprendedores</option>
+                    <option value="Reconocimiento profesional">Reconocimiento profesional</option>
                     <option value="Compartir conocimiento">Compartir conocimiento</option>
-                    <option value="Expandir mi red de contactos">Expandir mi red de contactos</option>
-                    <option value="Acceder a nuevos proyectos">Acceder a nuevos proyectos</option>
                     <option value="Otro">Otro</option>
                   </select>
                   {motivacionConsultor === "Otro" && (
@@ -1130,16 +1291,23 @@ const Register = () => {
                   )}
                 </div>
               </div>
-              <button
-                onClick={handleNext}
-                className="w-full bg-blue-600 text-white p-3 rounded-lg mt-6 font-semibold hover:bg-blue-700 transition duration-300 shadow-md hover:shadow-lg"
-              >
-                Siguiente
-              </button>
+              <div className="flex justify-between mt-6">
+                <button
+                  onClick={handleBack}
+                  className="px-6 py-3 bg-gray-300 text-gray-800 rounded-lg font-semibold hover:bg-gray-400 transition duration-300 shadow-md hover:shadow-lg"
+                >
+                  Volver
+                </button>
+                <button
+                  onClick={handleNext}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition duration-300 shadow-md hover:shadow-lg"
+                >
+                  Siguiente
+                </button>
+              </div>
             </div>
           );
         }
-        break;
       case 7:
         if (role === "consultor") {
           return (
@@ -1147,73 +1315,69 @@ const Register = () => {
               <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">🔹 Paso 6: Validaciones</h2>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-gray-700 font-medium mb-2">URL a tu Curriculum Vitae (CV) o perfil profesional</label>
+                  <label className="block text-gray-700 font-medium mb-2">Link a tu Curriculum Vitae (CV) o perfil profesional (Google Drive, Dropbox, LinkedIn, etc.)</label>
                   <input
-                    type="text"
+                    type="url"
                     value={curriculum}
                     onChange={(e) => setCurriculum(e.target.value)}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                    placeholder="https://drive.google.com/..."
+                    placeholder="Ej. https://drive.google.com/tu-cv"
                   />
-                  <p className="text-sm text-gray-500 mt-1">Asegúrate de que el enlace sea público o compartible.</p>
                 </div>
                 <div>
-                  <label className="block text-gray-700 font-medium mb-2">URL a tu portafolio de proyectos (opcional)</label>
+                  <label className="block text-gray-700 font-medium mb-2">Link a tu portafolio de proyectos o experiencia (opcional)</label>
                   <input
-                    type="text"
+                    type="url"
                     value={portafolio}
                     onChange={(e) => setPortafolio(e.target.value)}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                    placeholder="https://behance.net/..."
+                    placeholder="Ej. https://tu-portafolio.com"
                   />
                 </div>
                 <div>
-                  <label className="block text-gray-700 font-medium mb-2">URL a tu perfil de LinkedIn (opcional)</label>
+                  <label className="block text-gray-700 font-medium mb-2">Link a tu perfil de LinkedIn (opcional, pero recomendado)</label>
                   <input
-                    type="text"
+                    type="url"
                     value={linkedin}
                     onChange={(e) => setLinkedin(e.target.value)}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                    placeholder="https://linkedin.com/in/tu-perfil"
+                    placeholder="Ej. https://linkedin.com/in/tu-perfil"
                   />
                 </div>
                 <div>
-                  <label className="block text-gray-700 font-medium mb-2">Referencias profesionales (nombre y contacto, al menos 2)</label>
+                  <label className="block text-gray-700 font-medium mb-2">Referencias profesionales (nombre, cargo y contacto de al menos dos personas que puedan dar fe de tu experiencia)</label>
                   <textarea
                     value={referencias}
                     onChange={(e) => setReferencias(e.target.value)}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                    placeholder="Nombre 1: correo@ejemplo.com, Tel: +52 123 456 7890&#10;Nombre 2: contacto@otro.com, Tel: +1 987 654 3210"
+                    placeholder="Ej. 1. Juan Pérez, Director de Innovación, juan.perez@empresa.com; 2. Ana Gómez, CEO, ana.gomez@otraempresa.com"
                     rows={4}
                   ></textarea>
-                  <p className="text-sm text-gray-500 mt-1">Nos pondremos en contacto con tus referencias para validar tu experiencia.</p>
                 </div>
               </div>
-              <button
-                onClick={handleNext}
-                className="w-full bg-blue-600 text-white p-3 rounded-lg mt-6 font-semibold hover:bg-blue-700 transition duration-300 shadow-md hover:shadow-lg"
-              >
-                Siguiente
-              </button>
+              <div className="flex justify-between mt-6">
+                <button
+                  onClick={handleBack}
+                  className="px-6 py-3 bg-gray-300 text-gray-800 rounded-lg font-semibold hover:bg-gray-400 transition duration-300 shadow-md hover:shadow-lg"
+                >
+                  Volver
+                </button>
+                <button
+                  onClick={handleNext}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition duration-300 shadow-md hover:shadow-lg"
+                >
+                  Siguiente
+                </button>
+              </div>
             </div>
           );
         }
-        break;
       case 8:
         if (role === "consultor") {
           return (
             <div className="animate-fade-in">
               <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">🔹 Paso 7: Registro Final</h2>
               <div className="space-y-4">
-                <div className="flex items-start">
-                  <input
-                    type="checkbox"
-                    checked={confirmacionEntrevista}
-                    onChange={(e) => setConfirmacionEntrevista(e.target.checked)}
-                    className="form-checkbox h-5 w-5 text-blue-600 rounded mt-1 mr-2"
-                  />
-                  <label className="text-gray-700">Confirmo que estoy dispuesto(a) a una entrevista inicial para validar mi perfil.</label>
-                </div>
                 <div>
                   <label className="block text-gray-700 font-medium mb-2">Crea tu contraseña</label>
                   <input
@@ -1221,76 +1385,97 @@ const Register = () => {
                     value={userData.password}
                     onChange={(e) => setUserData({ ...userData, password: e.target.value })}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                    placeholder="Contraseña (mínimo 8 caracteres)"
+                    placeholder="Mínimo 8 caracteres"
                   />
                 </div>
-                <div className="flex items-start">
+                <div className="flex items-center">
                   <input
                     type="checkbox"
                     checked={userData.privacyConsent}
                     onChange={(e) => setUserData({ ...userData, privacyConsent: e.target.checked })}
-                    className="form-checkbox h-5 w-5 text-blue-600 rounded mt-1 mr-2"
+                    className="form-checkbox h-5 w-5 text-blue-600 rounded"
                   />
-                  <label className="text-gray-700">Acepto el <a href="#" className="text-blue-600 hover:underline">aviso de privacidad</a> y los <a href="#" className="text-blue-600 hover:underline">términos de uso</a>.</label>
+                  <label className="ml-2 text-gray-800">
+                    Acepto el <a href="/aviso-privacidad" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">Aviso de Privacidad</a> y los <a href="/terminos-uso" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">Términos de Uso</a>.
+                  </label>
+                </div>
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={confirmacionEntrevista}
+                    onChange={(e) => setConfirmacionEntrevista(e.target.checked)}
+                    className="form-checkbox h-5 w-5 text-blue-600 rounded"
+                  />
+                  <label className="ml-2 text-gray-800">
+                    Confirmo mi disposición a participar en una entrevista de validación como parte del proceso de selección de consultores.
+                  </label>
                 </div>
               </div>
-              {error && <p className="text-red-500 text-sm mt-4 text-center">{error}</p>}
-              <button
-                onClick={handleRegister}
-                className="w-full bg-green-600 text-white p-3 rounded-lg mt-6 font-semibold hover:bg-green-700 transition duration-300 shadow-md hover:shadow-lg"
-              >
-                Registrarme
-              </button>
-              <div className="mt-8 text-center">
-                <p className="text-gray-600 mb-4 font-medium">O regístrate con:</p>
-                <div className="flex justify-center space-x-6">
+              {error && (
+                <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm text-center">
+                  {error}
+                </div>
+              )}
+              <div className="flex justify-between mt-6">
+                <button
+                  onClick={handleBack}
+                  className="px-6 py-3 bg-gray-300 text-gray-800 rounded-lg font-semibold hover:bg-gray-400 transition duration-300 shadow-md hover:shadow-lg"
+                >
+                  Volver
+                </button>
+                <button
+                  onClick={handleRegister}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition duration-300 shadow-md hover:shadow-lg"
+                >
+                  Registrarme
+                </button>
+              </div>
+              <div className="mt-6 text-center text-gray-600">
+                <p className="mb-4">O regístrate con:</p>
+                <div className="flex justify-center space-x-4">
                   <button
                     onClick={() => handleSocialLogin("google")}
-                    className="flex items-center justify-center p-3 border border-gray-300 rounded-full bg-white shadow-sm hover:bg-gray-50 transform hover:scale-105 transition-all duration-200"
-                    aria-label="Registrarse con Google"
+                    className="flex items-center justify-center p-3 border border-gray-300 rounded-full shadow-md hover:shadow-lg transition duration-300"
+                    aria-label="Regístrate con Google"
                   >
-                    <FaGoogle className="text-2xl text-red-500" />
+                    <FaGoogle className="w-6 h-6 text-red-500" />
                   </button>
                   <button
                     onClick={() => handleSocialLogin("facebook")}
-                    className="flex items-center justify-center p-3 border border-gray-300 rounded-full bg-white shadow-sm hover:bg-gray-50 transform hover:scale-105 transition-all duration-200"
-                    aria-label="Registrarse con Facebook"
+                    className="flex items-center justify-center p-3 border border-gray-300 rounded-full shadow-md hover:shadow-lg transition duration-300"
+                    aria-label="Regístrate con Facebook"
                   >
-                    <FaFacebook className="text-2xl text-blue-600" />
+                    <FaFacebook className="w-6 h-6 text-blue-600" />
                   </button>
                   <button
                     onClick={() => handleSocialLogin("apple")}
-                    className="flex items-center justify-center p-3 border border-gray-300 rounded-full bg-white shadow-sm hover:bg-gray-50 transform hover:scale-105 transition-all duration-200"
-                    aria-label="Registrarse con Apple"
+                    className="flex items-center justify-center p-3 border border-gray-300 rounded-full shadow-md hover:shadow-lg transition duration-300"
+                    aria-label="Regístrate con Apple"
                   >
-                    <FaApple className="text-2xl text-gray-800" />
+                    <FaApple className="w-6 h-6 text-gray-800" />
                   </button>
                 </div>
               </div>
             </div>
           );
         }
-        break;
       default:
         return null;
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-700 p-4">
-      <div className="relative bg-white p-8 rounded-2xl shadow-xl w-full max-w-lg transition-all duration-500 ease-in-out transform scale-95 md:scale-100">
-        {step > 1 && renderStepIndicator()} {/* Only show indicators after initial role selection */}
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4 sm:p-6 lg:p-8">
+      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-2xl transform transition-all duration-300">
+        {renderStepIndicator()}
         {renderStep()}
-
-        {(step > 1 && step <= getMaxSteps()) && ( // Dynamic "Atrás" button logic
-          <button
-            onClick={handleBack}
-            className="w-full bg-gray-200 text-gray-800 p-3 rounded-lg mt-6 font-semibold hover:bg-gray-300 transition duration-300 shadow-sm hover:shadow-md"
-          >
-            Atrás
-          </button>
-        )}
-        {error && <p className="text-red-500 text-sm mt-4 text-center animate-shake">{error}</p>}
+        {/* General error display, moved inside the last step's render for clarity, but could be global */}
+        {/* {error && step !== getMaxSteps() && ( // Display error if not on the final step's own error handling
+          <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm text-center">
+            {error}
+          </div>
+        )} */}
+        {/* The error message is now handled specifically within the final step for better UX */}
       </div>
     </div>
   );
