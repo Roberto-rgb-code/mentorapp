@@ -2,22 +2,22 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FaRobot, FaUser, FaTimes, FaCommentDots } from 'react-icons/fa';
 
-interface ChatbotWidgetProps {
-  // Puedes pasar el usuario o solo el estado de autenticación si es necesario
-  // user: any;
-  // handleLoginRedirect: () => void;
-}
+interface ChatbotWidgetProps {}
+
+const API_URL = 'http://127.0.0.1:8000/api/chatbot'; // FastAPI endpoint
 
 const ChatbotWidget: React.FC<ChatbotWidgetProps> = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState<{ text: string; sender: string }[]>([
-    { text: '¡Hola! Soy Grok, tu asistente en MentorApp. ¿En qué puedo ayudarte hoy? Puedo sugerirte servicios como asesorías, cursos, diagnósticos o el marketplace.', sender: 'assistant' },
+    {
+      text: '¡Hola! Soy Grok, tu asistente en MentorApp. ¿En qué puedo ayudarte hoy? Puedo sugerirte servicios como asesorías, cursos, diagnósticos o el marketplace.',
+      sender: 'assistant',
+    },
   ]);
   const [isLoading, setIsLoading] = useState(false);
   const chatMessagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll al final del chat cuando hay nuevos mensajes
   useEffect(() => {
     chatMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
@@ -33,22 +33,33 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/chatbot', {
+      // Llama directo al backend FastAPI
+      const response = await fetch(API_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message: currentChatInput, messages: chatMessages }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: currentChatInput,
+          messages: chatMessages,
+        }),
       });
 
       const data = await response.json();
-      if (response.ok) {
-        setChatMessages((prev) => [...prev, { text: data.reply, sender: 'assistant' }]);
+      if (response.ok && data.reply) {
+        setChatMessages((prev) => [
+          ...prev,
+          { text: data.reply, sender: 'assistant' },
+        ]);
       } else {
-        setChatMessages((prev) => [...prev, { text: 'Lo siento, hubo un error al procesar tu mensaje. Intenta con algo diferente.', sender: 'assistant' }]);
+        setChatMessages((prev) => [
+          ...prev,
+          { text: 'Lo siento, hubo un error al procesar tu mensaje. Intenta con algo diferente.', sender: 'assistant' },
+        ]);
       }
     } catch (error) {
-      setChatMessages((prev) => [...prev, { text: 'Error al conectar con el chatbot. Parece que hay problemas de conexión. Intenta de nuevo más tarde.', sender: 'assistant' }]);
+      setChatMessages((prev) => [
+        ...prev,
+        { text: 'Error al conectar con el chatbot. Intenta de nuevo más tarde.', sender: 'assistant' },
+      ]);
     } finally {
       setIsLoading(false);
     }
@@ -56,7 +67,7 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = () => {
 
   return (
     <>
-      {/* Botón flotante para abrir el widget */}
+      {/* Botón flotante */}
       <button
         className="fixed bottom-6 right-6 bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 transition-all duration-300 transform hover:scale-110 z-50 focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-75"
         onClick={() => setIsOpen(!isOpen)}
@@ -65,7 +76,7 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = () => {
         {isOpen ? <FaTimes size={24} /> : <FaCommentDots size={24} />}
       </button>
 
-      {/* Contenedor del widget del chatbot */}
+      {/* Widget */}
       <div
         className={`fixed bottom-20 right-6 w-80 h-[450px] bg-white rounded-lg shadow-xl border border-gray-200 flex flex-col transition-all duration-300 ease-in-out z-50
           ${isOpen ? 'translate-y-0 opacity-100 visible' : 'translate-y-10 opacity-0 invisible'}`}
@@ -82,15 +93,12 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = () => {
             <FaTimes size={20} />
           </button>
         </div>
-
-        {/* Área de mensajes del chat */}
+        {/* Área de mensajes */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 custom-scrollbar">
           {chatMessages.map((message, index) => (
             <div
               key={index}
-              className={`flex items-end ${
-                message.sender === 'user' ? 'justify-end' : 'justify-start'
-              }`}
+              className={`flex items-end ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               {message.sender === 'assistant' && (
                 <FaRobot className="text-blue-500 text-xl mr-2 flex-shrink-0" />
@@ -120,8 +128,7 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = () => {
           )}
           <div ref={chatMessagesEndRef} />
         </div>
-
-        {/* Formulario de entrada del chat */}
+        {/* Formulario */}
         <form onSubmit={handleChatSubmit} className="p-4 border-t border-gray-200 bg-white">
           <div className="flex gap-2">
             <input
