@@ -96,7 +96,7 @@ const Contact = () => {
                   width="100%"
                   height="300"
                   style={{ border: 0 }}
-                  allowFullScreen=""
+                  allowFullScreen
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
                   aria-label="Ubicación de nuestra oficina en Google Maps"

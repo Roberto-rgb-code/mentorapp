@@ -38,13 +38,16 @@ interface PerfilData {
   isVisibleInAsesoria: boolean;
 }
 
+type PerfilWithKey = PerfilData & { _key: string };
+type MaybePerfilWithKey = PerfilData & { _key?: string } | null;
+
 const Asesoria = () => {
   const { user } = useAuth();
-  const [perfiles, setPerfiles] = useState<(PerfilData & { _key: string })[]>([]);
+  const [perfiles, setPerfiles] = useState<PerfilWithKey[]>([]);
   const [mensaje, setMensaje] = useState<{ error?: string; success?: string }>({});
   const [showForm, setShowForm] = useState(false);
   const [editingKey, setEditingKey] = useState<string | null>(null);
-  const [selectedConsultant, setSelectedConsultant] = useState<PerfilData | null>(null);
+  const [selectedConsultant, setSelectedConsultant] = useState<MaybePerfilWithKey>(null);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [formErrors, setFormErrors] = useState<{ [key: number]: string[] }>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -119,7 +122,7 @@ const Asesoria = () => {
           })
         );
         const filteredDatos = datos
-          .filter((d): d is PerfilData & { _key: string } => d !== null)
+          .filter((d): d is PerfilWithKey => d !== null)
           .filter((d, index, self) => 
             index === self.findIndex((t) => t._key === d._key)
           );
@@ -156,10 +159,11 @@ const Asesoria = () => {
             : p.areasExperiencia.filter((v) => v !== value);
         }
       } else if (type === "radio") {
-        newPerfil[name] = value;
+        (newPerfil as any)[name] = value;
       } else {
-        newPerfil[name] = value;
+        (newPerfil as any)[name] = value;
       }
+
       // Clear errors for the field being updated
       setFormErrors((prev) => {
         const newErrors = { ...prev };
@@ -200,7 +204,6 @@ const Asesoria = () => {
     const missingFields: string[] = [];
     switch (step) {
       case 0:
-        // Foto de perfil es opcional
         break;
       case 1:
         if (!perfil.nombreCompleto) missingFields.push("nombreCompleto");
@@ -237,7 +240,6 @@ const Asesoria = () => {
     return { isValid: missingFields.length === 0, missingFields };
   };
 
-  // Validar todos los pasos y encontrar el primero con error
   const validateAllSteps = () => {
     const errors: { [key: number]: string[] } = {};
     let firstErrorStep = -1;
@@ -300,7 +302,7 @@ const Asesoria = () => {
   };
 
   // **Update**: Cargar datos para edición
-  const editPerfil = (p: PerfilData & { _key: string }) => {
+  const editPerfil = (p: PerfilWithKey) => {
     setPerfil(p);
     setEditingKey(p._key);
     setShowForm(true);
@@ -325,7 +327,7 @@ const Asesoria = () => {
   };
 
   // Seleccionar consultor para ver detalles
-  const handleSelectConsultant = (consultant: PerfilData) => {
+  const handleSelectConsultant = (consultant: PerfilWithKey) => {
     setSelectedConsultant(consultant);
   };
 
@@ -1421,8 +1423,10 @@ const Asesoria = () => {
                       <div className="flex space-x-4">
                         <button
                           onClick={() => {
-                            editPerfil(selectedConsultant);
-                            setSelectedConsultant(null);
+                            if (selectedConsultant && typeof selectedConsultant._key === "string") {
+                              editPerfil(selectedConsultant as PerfilWithKey);
+                              setSelectedConsultant(null);
+                            }
                           }}
                           className="flex-1 bg-yellow-500 text-white px-6 py-3 rounded-lg hover:bg-yellow-600 transition-all duration-300 font-medium flex items-center justify-center space-x-2"
                         >
@@ -1433,8 +1437,10 @@ const Asesoria = () => {
                         </button>
                         <button
                           onClick={() => {
-                            deletePerfil(selectedConsultant._key);
-                            setSelectedConsultant(null);
+                            if (typeof selectedConsultant._key === "string") {
+                              deletePerfil(selectedConsultant._key);
+                              setSelectedConsultant(null);
+                            }
                           }}
                           className="flex-1 bg-red-500 text-white px-6 py-3 rounded-lg hover:bg-red-600 transition-all duration-300 font-medium flex items-center justify-center space-x-2"
                         >

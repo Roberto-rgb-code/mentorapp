@@ -1,36 +1,105 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Docker Setup para MentorApp
 
-## Getting Started
+## 🚀 Configuración rápida
 
-First, run the development server:
-
+### 1. Preparar variables de entorno
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Copia el archivo de ejemplo
+cp .env.example .env.local
+
+# Edita .env.local con tus valores reales
+# Agrega tus keys de Firebase y AWS
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Ejecutar con Docker Compose (Recomendado)
+```bash
+# Construir y ejecutar
+docker compose up --build
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+# Ejecutar en background
+docker compose up -d --build
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# Ver logs
+docker compose logs -f mentorapp
 
-## Learn More
+# Detener
+docker compose down
+```
 
-To learn more about Next.js, take a look at the following resources:
+### 3. Ejecutar con Docker directo
+```bash
+# Construir imagen
+docker build --no-cache -t mentorapp .
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Ejecutar con archivo de variables
+docker run -p 3000:3000 --env-file .env mentorapp
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# Ejecutar con variables individuales
+docker run -p 3000:3000 \
+  -e NEXT_PUBLIC_FIREBASE_API_KEY=tu_api_key \
+  -e AWS_ACCESS_KEY_ID=tu_access_key \
+  mentorapp
+```
 
-## Deploy on Vercel
+## 🔧 Configuración del proyecto
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Archivos incluidos:
+- `Dockerfile` - Imagen optimizada para Node.js 22
+- `docker-compose.yml` - Configuración completa con networking
+- `.dockerignore` - Archivos excluidos del build
+- `next.config.js` - Configuración actualizada con Docker support
+- `.env.example` - Template de variables de entorno
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Características optimizadas:
+- ✅ **Multi-stage build** para imagen mínima
+- ✅ **Node.js 22** con Alpine Linux
+- ✅ **Cache de dependencias** npm optimizado
+- ✅ **Variables de entorno** para Firebase y AWS
+- ✅ **Three.js, GSAP, React Slick** configurados
+- ✅ **Tailwind CSS v4** soporte completo
+- ✅ **API rewrites** mantenidos (puerto 5000)
+- ✅ **Networking** configurado para comunicación con API local
+
+## 🌐 Acceso a la aplicación
+
+Una vez ejecutando:
+- **Frontend**: http://localhost:3000
+- **API calls**: Se redirigen automáticamente a http://127.0.0.1:5000
+
+## 🐛 Troubleshooting
+
+### Si la API no se conecta:
+1. Verifica que tu API esté corriendo en puerto 5000
+2. Usa `network_mode: "host"` en docker-compose.yml
+3. Cambia `127.0.0.1` por `host.docker.internal` en next.config.js si usas Docker Desktop
+
+### Si faltan variables de entorno:
+1. Verifica que `.env.local` existe
+2. Asegúrate de que las variables tengan valores
+3. Reinicia el contenedor después de cambios
+
+### Para debugging:
+```bash
+# Acceder al contenedor
+docker exec -it mentorapp_mentorapp_1 sh
+
+# Ver logs detallados
+docker compose logs -f
+
+# Reconstruir sin cache
+docker compose build --no-cache
+```
+
+## 📦 Dependencias incluidas
+
+Tu proyecto incluye estas dependencias principales:
+- **Next.js 15.2.4** con React 19
+- **Firebase 11.x** para autenticación y storage
+- **AWS SDK v3** para S3
+- **Three.js 0.178** para gráficos 3D
+- **GSAP 3.13** para animaciones
+- **Tailwind CSS v4** para estilos
+- **React Slick** para carruseles
+- **Framer Motion** para animaciones
+
+¡Tu aplicación está lista para producción! 🎉
