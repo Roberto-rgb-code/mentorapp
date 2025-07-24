@@ -123,7 +123,7 @@ const Asesoria = () => {
         );
         const filteredDatos = datos
           .filter((d): d is PerfilWithKey => d !== null)
-          .filter((d, index, self) => 
+          .filter((d, index, self) =>
             index === self.findIndex((t) => t._key === d._key)
           );
         setPerfiles(filteredDatos);
@@ -204,6 +204,7 @@ const Asesoria = () => {
     const missingFields: string[] = [];
     switch (step) {
       case 0:
+        // Step 0 (profile picture) is optional, so it's always valid here conceptually
         break;
       case 1:
         if (!perfil.nombreCompleto) missingFields.push("nombreCompleto");
@@ -232,6 +233,7 @@ const Asesoria = () => {
         if (!perfil.tarifa) missingFields.push("tarifa");
         break;
       case 7:
+        if (!perfil.motivacion) missingFields.push("motivacion"); // Added 'motivacion' as required for step 7 based on form
         if (!perfil.confirmacionEntrevista) missingFields.push("confirmacionEntrevista");
         break;
       default:
@@ -239,6 +241,7 @@ const Asesoria = () => {
     }
     return { isValid: missingFields.length === 0, missingFields };
   };
+
 
   const validateAllSteps = () => {
     const errors: { [key: number]: string[] } = {};
@@ -334,15 +337,15 @@ const Asesoria = () => {
   // Filtrar perfiles
   const filteredPerfiles = perfiles.filter((p) => {
     if (!p.isVisibleInAsesoria) return false;
-    
-    const matchesSearch = searchTerm === "" || 
+
+    const matchesSearch = searchTerm === "" ||
       p.nombreCompleto.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.areaEstudios.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.ciudadPais.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesArea = filterArea === "" || 
+
+    const matchesArea = filterArea === "" ||
       p.areasExperiencia.some(area => area.toLowerCase().includes(filterArea.toLowerCase()));
-    
+
     return matchesSearch && matchesArea;
   });
 
@@ -366,7 +369,7 @@ const Asesoria = () => {
   const totalCards = 8;
   const stepTitles = [
     "Foto de Perfil",
-    "Datos Personales", 
+    "Datos Personales",
     "Formación Académica",
     "Experiencia",
     "Especialidad",
@@ -481,7 +484,7 @@ const Asesoria = () => {
               </div>
             </div>
           )}
-          
+
           {mensaje.success && (
             <div className="max-w-md mx-auto mb-6 bg-green-50 border-l-4 border-green-400 p-4 rounded-r-lg shadow-sm">
               <div className="flex items-center">
@@ -513,12 +516,12 @@ const Asesoria = () => {
                     <div key={i} className="flex flex-col items-center cursor-pointer group" onClick={() => goToStep(i)}>
                       <div
                         className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300 ${
-                          i === currentCardIndex 
-                            ? "bg-blue-600 text-white shadow-lg transform scale-110" 
-                            : i < currentCardIndex 
-                            ? "bg-green-500 text-white" 
-                            : formErrors[i]?.length > 0 
-                            ? "bg-red-500 text-white" 
+                          i === currentCardIndex
+                            ? "bg-blue-600 text-white shadow-lg transform scale-110"
+                            : i < currentCardIndex
+                            ? "bg-green-500 text-white"
+                            : formErrors[i]?.length > 0
+                            ? "bg-red-500 text-white"
                             : "bg-gray-200 text-gray-500 group-hover:bg-gray-300"
                         }`}
                       >
@@ -536,15 +539,15 @@ const Asesoria = () => {
                     </div>
                   ))}
                 </div>
-                
+
                 {/* Barra de progreso */}
                 <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
+                  <div
                     className="bg-gradient-to-r from-blue-600 to-purple-600 h-2 rounded-full transition-all duration-500"
                     style={{ width: `${((currentCardIndex + 1) / totalCards) * 100}%` }}
                   ></div>
                 </div>
-                
+
                 <p className="text-center text-gray-600 mt-2 font-medium">
                   Paso {currentCardIndex + 1} de {totalCards}
                 </p>
@@ -711,122 +714,90 @@ const Asesoria = () => {
                     {/* Paso 4: Experiencia mejorada */}
                     <div className="min-w-full px-4">
                       <div className="bg-gradient-to-br from-blue-50 to-purple-50 p-8 rounded-xl border border-gray-200">
-                        <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">Experiencia Profesional</h3>
+                        <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">Experiencia Laboral</h3>
                         <div className="space-y-6">
                           <div>
-                            <label className="block mb-4 text-gray-700 font-semibold">Años de experiencia *</label>
-                            <div className="grid md:grid-cols-2 gap-3">
-                              {["Menos de 1 año", "1-3 años", "4-7 años", "Más de 8 años"].map((exp) => (
-                                <label key={exp} className={`flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all hover:bg-blue-50 ${
-                                  perfil.anosExperiencia === exp ? "border-blue-500 bg-blue-50" : "border-gray-200"
-                                }`}>
-                                  <input
-                                    type="radio"
-                                    name="anosExperiencia"
-                                    value={exp}
-                                    checked={perfil.anosExperiencia === exp}
-                                    onChange={handleChange}
-                                    className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500"
-                                  />
-                                  <span className="text-gray-700 font-medium">{exp}</span>
-                                </label>
-                              ))}
-                            </div>
+                            <label className="block mb-2 text-gray-700 font-semibold">Años de experiencia relevante *</label>
+                            <input
+                              name="anosExperiencia"
+                              type="number"
+                              value={perfil.anosExperiencia}
+                              onChange={handleChange}
+                              placeholder="Ej: 5"
+                              min="0"
+                              className={`w-full border-2 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                                formErrors[3]?.includes("anosExperiencia") ? "border-red-500" : "border-gray-300 focus:border-blue-500"
+                              }`}
+                            />
                             {formErrors[3]?.includes("anosExperiencia") && (
-                              <p className="text-red-500 text-sm mt-2">Este campo es obligatorio</p>
+                              <p className="text-red-500 text-sm mt-1">Este campo es obligatorio</p>
                             )}
                           </div>
                           <div>
-                            <label className="block mb-4 text-gray-700 font-semibold">Experiencia con MIPYMES *</label>
-                            <div className="space-y-3">
-                              {[
-                                "Sí, de forma recurrente", 
-                                "Sí, pero no es mi enfoque principal", 
-                                "No, mi experiencia es con grandes empresas", 
-                                "Estoy comenzando en este mercado"
-                              ].map((exp) => (
-                                <label key={exp} className={`flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all hover:bg-blue-50 ${
-                                  perfil.experienciaMipymes === exp ? "border-blue-500 bg-blue-50" : "border-gray-200"
-                                }`}>
-                                  <input
-                                    type="radio"
-                                    name="experienciaMipymes"
-                                    value={exp}
-                                    checked={perfil.experienciaMipymes === exp}
-                                    onChange={handleChange}
-                                    className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500"
-                                  />
-                                  <span className="text-gray-700 font-medium">{exp}</span>
-                                </label>
-                              ))}
-                            </div>
+                            <label className="block mb-2 text-gray-700 font-semibold">Experiencia específica con MIPYMES (ej. proyectos, asesorías) *</label>
+                            <textarea
+                              name="experienciaMipymes"
+                              value={perfil.experienciaMipymes}
+                              onChange={handleChange}
+                              rows={4}
+                              placeholder="Describe brevemente tu experiencia con micro, pequeñas y medianas empresas..."
+                              className={`w-full border-2 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                                formErrors[3]?.includes("experienciaMipymes") ? "border-red-500" : "border-gray-300 focus:border-blue-500"
+                              }`}
+                            ></textarea>
                             {formErrors[3]?.includes("experienciaMipymes") && (
-                              <p className="text-red-500 text-sm mt-2">Este campo es obligatorio</p>
+                              <p className="text-red-500 text-sm mt-1">Este campo es obligatorio</p>
                             )}
                           </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* Paso 5: Especialidad profesional mejorada */}
+                    {/* Paso 5: Especialidad y Caso de Éxito */}
                     <div className="min-w-full px-4">
                       <div className="bg-gradient-to-br from-blue-50 to-purple-50 p-8 rounded-xl border border-gray-200">
-                        <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">Especialidad Profesional</h3>
+                        <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">Especialidad y Casos de Éxito</h3>
                         <div className="space-y-6">
                           <div>
-                            <label className="block mb-4 text-gray-700 font-semibold">
-                              Selecciona hasta 3 áreas en las que tienes mayor experiencia *
-                            </label>
+                            <label className="block mb-4 text-gray-700 font-semibold">Áreas de experiencia y fortaleza (selecciona una o más) *</label>
                             <div className="grid md:grid-cols-2 gap-3">
                               {[
-                                "Estrategia y Planeación", 
-                                "Finanzas", 
-                                "Recursos Humanos", 
-                                "Marketing y Ventas", 
-                                "Operaciones y Procesos", 
-                                "Innovación y Tecnología", 
-                                "Legal y Fiscal", 
-                                "Sustentabilidad y Responsabilidad Social", 
-                                "Consultoría Sectorial Especializada", 
-                                "Desarrollo Personal y Organizacional"
+                                "Administración y Operaciones", "Finanzas y Contabilidad", "Marketing y Ventas",
+                                "Recursos Humanos", "Tecnología y Digitalización", "Logística y Cadena de Suministro",
+                                "Legal y Cumplimiento", "Innovación y Desarrollo de Productos", "Sustentabilidad y RSE",
+                                "Comercio Exterior", "Transformación Digital", "Estrategia de Negocio"
                               ].map((area) => (
                                 <label key={area} className={`flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all hover:bg-blue-50 ${
                                   perfil.areasExperiencia.includes(area) ? "border-blue-500 bg-blue-50" : "border-gray-200"
-                                } ${perfil.areasExperiencia.length >= 3 && !perfil.areasExperiencia.includes(area) ? "opacity-50 cursor-not-allowed" : ""}`}>
+                                }`}>
                                   <input
                                     type="checkbox"
                                     name="areasExperiencia"
                                     value={area}
                                     checked={perfil.areasExperiencia.includes(area)}
                                     onChange={handleChange}
-                                    disabled={perfil.areasExperiencia.length >= 3 && !perfil.areasExperiencia.includes(area)}
-                                    className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500"
+                                    className="mr-3 h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
                                   />
-                                  <span className="text-gray-700 font-medium text-sm">{area}</span>
+                                  <span className="text-gray-700 font-medium">{area}</span>
                                 </label>
                               ))}
                             </div>
-                            <p className="text-sm text-gray-600 mt-2">
-                              Seleccionadas: {perfil.areasExperiencia.length}/3
-                            </p>
                             {formErrors[4]?.includes("areasExperiencia") && (
-                              <p className="text-red-500 text-sm mt-2">Debes seleccionar al menos una área</p>
+                              <p className="text-red-500 text-sm mt-2">Debes seleccionar al menos una área.</p>
                             )}
                           </div>
                           <div>
-                            <label className="block mb-2 text-gray-700 font-semibold">
-                              ¿Cuál ha sido uno de tus casos de éxito más representativos? *
-                            </label>
+                            <label className="block mb-2 text-gray-700 font-semibold">Comparte un caso de éxito o proyecto relevante donde hayas generado un impacto significativo *</label>
                             <textarea
                               name="casoExito"
                               value={perfil.casoExito}
                               onChange={handleChange}
-                              placeholder="Describe brevemente un proyecto o cliente exitoso donde hayas logrado resultados significativos..."
-                              className={`w-full border-2 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-none ${
+                              rows={4}
+                              placeholder="Describe el reto, tu rol, las acciones tomadas y los resultados obtenidos..."
+                              className={`w-full border-2 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
                                 formErrors[4]?.includes("casoExito") ? "border-red-500" : "border-gray-300 focus:border-blue-500"
                               }`}
-                              rows={4}
-                            />
+                            ></textarea>
                             {formErrors[4]?.includes("casoExito") && (
                               <p className="text-red-500 text-sm mt-1">Este campo es obligatorio</p>
                             )}
@@ -835,22 +806,15 @@ const Asesoria = () => {
                       </div>
                     </div>
 
-                    {/* Paso 6: Estilo y metodología mejorado */}
+                    {/* Paso 6: Tipo y Modalidad de Acompañamiento */}
                     <div className="min-w-full px-4">
                       <div className="bg-gradient-to-br from-blue-50 to-purple-50 p-8 rounded-xl border border-gray-200">
-                        <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">Metodología de Trabajo</h3>
+                        <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">Metodología de Acompañamiento</h3>
                         <div className="space-y-6">
                           <div>
-                            <label className="block mb-4 text-gray-700 font-semibold">
-                              ¿Qué tipo de acompañamiento ofreces actualmente? *
-                            </label>
-                            <div className="space-y-3">
-                              {[
-                                "Asesoría puntual (1-2 sesiones)", 
-                                "Proyectos de mediano plazo", 
-                                "Acompañamiento continuo (programas)", 
-                                "Talleres / formación grupal"
-                              ].map((tipo) => (
+                            <label className="block mb-4 text-gray-700 font-semibold">Tipo de acompañamiento que ofreces *</label>
+                            <div className="grid md:grid-cols-2 gap-3">
+                              {["Mentoría (guía, consejo)", "Consultoría (soluciones específicas)", "Coaching (desarrollo de habilidades)", "Mixto"].map((tipo) => (
                                 <label key={tipo} className={`flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all hover:bg-blue-50 ${
                                   perfil.tipoAcompanamiento === tipo ? "border-blue-500 bg-blue-50" : "border-gray-200"
                                 }`}>
@@ -871,21 +835,21 @@ const Asesoria = () => {
                             )}
                           </div>
                           <div>
-                            <label className="block mb-4 text-gray-700 font-semibold">¿Cómo prefieres trabajar? *</label>
+                            <label className="block mb-4 text-gray-700 font-semibold">Modalidad de trabajo preferida *</label>
                             <div className="grid md:grid-cols-2 gap-3">
-                              {["100% virtual", "Mixto"].map((mod) => (
-                                <label key={mod} className={`flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all hover:bg-blue-50 ${
-                                  perfil.modalidadTrabajo === mod ? "border-blue-500 bg-blue-50" : "border-gray-200"
+                              {["Presencial", "Remoto", "Híbrido"].map((modalidad) => (
+                                <label key={modalidad} className={`flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all hover:bg-blue-50 ${
+                                  perfil.modalidadTrabajo === modalidad ? "border-blue-500 bg-blue-50" : "border-gray-200"
                                 }`}>
                                   <input
                                     type="radio"
                                     name="modalidadTrabajo"
-                                    value={mod}
-                                    checked={perfil.modalidadTrabajo === mod}
+                                    value={modalidad}
+                                    checked={perfil.modalidadTrabajo === modalidad}
                                     onChange={handleChange}
                                     className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500"
                                   />
-                                  <span className="text-gray-700 font-medium">{mod}</span>
+                                  <span className="text-gray-700 font-medium">{modalidad}</span>
                                 </label>
                               ))}
                             </div>
@@ -897,161 +861,96 @@ const Asesoria = () => {
                       </div>
                     </div>
 
-                    {/* Paso 7: Disponibilidad mejorada */}
+                    {/* Paso 7: Disponibilidad y Tarifa */}
                     <div className="min-w-full px-4">
                       <div className="bg-gradient-to-br from-blue-50 to-purple-50 p-8 rounded-xl border border-gray-200">
-                        <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">Disponibilidad y Tarifas</h3>
+                        <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">Disponibilidad y Tarifa</h3>
                         <div className="space-y-6">
                           <div>
-                            <label className="block mb-4 text-gray-700 font-semibold">
-                              ¿Cuál es tu disponibilidad semanal para atender emprendedores? *
-                            </label>
-                            <div className="grid md:grid-cols-2 gap-3">
-                              {["1-3 hrs por semana", "4-8 hrs", "9-15 hrs", "Tiempo completo"].map((disp) => (
-                                <label key={disp} className={`flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all hover:bg-blue-50 ${
-                                  perfil.disponibilidadSemanal === disp ? "border-blue-500 bg-blue-50" : "border-gray-200"
-                                }`}>
-                                  <input
-                                    type="radio"
-                                    name="disponibilidadSemanal"
-                                    value={disp}
-                                    checked={perfil.disponibilidadSemanal === disp}
-                                    onChange={handleChange}
-                                    className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500"
-                                  />
-                                  <span className="text-gray-700 font-medium">{disp}</span>
-                                </label>
-                              ))}
-                            </div>
+                            <label className="block mb-2 text-gray-700 font-semibold">Disponibilidad semanal aproximada (horas) *</label>
+                            <input
+                              name="disponibilidadSemanal"
+                              type="text" // Cambiado a text para flexibilidad, podrías validarlo como número si solo quieres horas exactas
+                              value={perfil.disponibilidadSemanal}
+                              onChange={handleChange}
+                              placeholder="Ej: 5-10 horas/semana, Martes y Jueves por la tarde"
+                              className={`w-full border-2 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                                formErrors[6]?.includes("disponibilidadSemanal") ? "border-red-500" : "border-gray-300 focus:border-blue-500"
+                              }`}
+                            />
                             {formErrors[6]?.includes("disponibilidadSemanal") && (
-                              <p className="text-red-500 text-sm mt-2">Este campo es obligatorio</p>
+                              <p className="text-red-500 text-sm mt-1">Este campo es obligatorio</p>
                             )}
                           </div>
                           <div>
-                            <label className="block mb-4 text-gray-700 font-semibold">¿Tienes una tarifa estándar? *</label>
-                            <div className="space-y-4">
-                              <label className={`flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all hover:bg-blue-50 ${
-                                perfil.tarifa.startsWith("Por hora") ? "border-blue-500 bg-blue-50" : "border-gray-200"
-                              }`}>
-                                <input
-                                  type="radio"
-                                  name="tarifaTipo"
-                                  value="Por hora"
-                                  checked={perfil.tarifa.startsWith("Por hora")}
-                                  onChange={(e) => setPerfil(p => ({ ...p, tarifa: e.target.value }))}
-                                  className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500"
-                                />
-                                <span className="text-gray-700 font-medium">Por hora</span>
-                              </label>
-                              {perfil.tarifa.startsWith("Por hora") && (
-                                <input
-                                  name="tarifa"
-                                  value={perfil.tarifa.replace("Por hora", "").trim()}
-                                  onChange={(e) => setPerfil(p => ({ ...p, tarifa: `Por hora ${e.target.value}` }))}
-                                  placeholder="$ 500 MXN"
-                                  className="w-full border-2 border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ml-6"
-                                />
-                              )}
-                              
-                              <label className={`flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all hover:bg-blue-50 ${
-                                perfil.tarifa.startsWith("Por paquete") ? "border-blue-500 bg-blue-50" : "border-gray-200"
-                              }`}>
-                                <input
-                                  type="radio"
-                                  name="tarifaTipo"
-                                  value="Por paquete"
-                                  checked={perfil.tarifa.startsWith("Por paquete")}
-                                  onChange={(e) => setPerfil(p => ({ ...p, tarifa: e.target.value }))}
-                                  className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500"
-                                />
-                                <span className="text-gray-700 font-medium">Por paquete</span>
-                              </label>
-                              {perfil.tarifa.startsWith("Por paquete") && (
-                                <textarea
-                                  name="tarifa"
-                                  value={perfil.tarifa.replace("Por paquete", "").trim()}
-                                  onChange={(e) => setPerfil(p => ({ ...p, tarifa: `Por paquete ${e.target.value}` }))}
-                                  placeholder="Describe brevemente tus paquetes y precios..."
-                                  className="w-full border-2 border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ml-6 resize-none"
-                                  rows={3}
-                                />
-                              )}
-                            </div>
+                            <label className="block mb-2 text-gray-700 font-semibold">Tarifa por hora o por sesión (opcional, o indica "A convenir") *</label>
+                            <input
+                              name="tarifa"
+                              type="text"
+                              value={perfil.tarifa}
+                              onChange={handleChange}
+                              placeholder="Ej: $50 USD/hora, $200 USD/sesión, A convenir"
+                              className={`w-full border-2 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                                formErrors[6]?.includes("tarifa") ? "border-red-500" : "border-gray-300 focus:border-blue-500"
+                              }`}
+                            />
                             {formErrors[6]?.includes("tarifa") && (
-                              <p className="text-red-500 text-sm mt-2">Este campo es obligatorio</p>
+                              <p className="text-red-500 text-sm mt-1">Este campo es obligatorio</p>
                             )}
                           </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* Paso 8: Confirmación mejorada */}
+                    {/* Paso 8: Motivación y Confirmación */}
                     <div className="min-w-full px-4">
-                      <div className="bg-gradient-to-br from-green-50 to-blue-50 p-8 rounded-xl border border-gray-200">
-                        <div className="text-center mb-6">
-                          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <svg className="w-8 h-8 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                            </svg>
-                          </div>
-                          <h3 className="text-2xl font-bold text-gray-800 mb-2">¡Casi terminamos!</h3>
-                          <p className="text-gray-600">Configura la visibilidad de tu perfil y confirma tu información</p>
-                        </div>
-                        
+                      <div className="bg-gradient-to-br from-blue-50 to-purple-50 p-8 rounded-xl border border-gray-200">
+                        <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">Motivación y Confirmación</h3>
                         <div className="space-y-6">
-                          <div className="bg-white p-4 rounded-lg border border-gray-200">
-                            <label className="flex items-start space-x-3 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                name="isVisibleInAsesoria"
-                                checked={perfil.isVisibleInAsesoria}
-                                onChange={handleChange}
-                                className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                              />
-                              <div>
-                                <span className="text-gray-800 font-medium">Hacer mi perfil visible públicamente</span>
-                                <p className="text-sm text-gray-600 mt-1">
-                                  Los emprendedores podrán ver tu perfil y contactarte directamente
-                                </p>
-                              </div>
-                            </label>
-                          </div>
-                          
-                          <div className="bg-white p-4 rounded-lg border border-gray-200">
-                            <label className="flex items-start space-x-3 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                name="confirmacionEntrevista"
-                                checked={perfil.confirmacionEntrevista}
-                                onChange={handleChange}
-                                className={`mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded ${
-                                  formErrors[7]?.includes("confirmacionEntrevista") ? "border-red-500" : ""
-                                }`}
-                              />
-                              <div>
-                                <span className="text-gray-800 font-medium">Confirmación y aceptación *</span>
-                                <p className="text-sm text-gray-600 mt-1">
-                                  Confirmo que la información proporcionada es verídica y acepto ser contactado para una entrevista de validación
-                                </p>
-                              </div>
-                            </label>
-                            {formErrors[7]?.includes("confirmacionEntrevista") && (
-                              <p className="text-red-500 text-sm mt-2">Debes aceptar esta confirmación para continuar</p>
+                          <div>
+                            <label className="block mb-2 text-gray-700 font-semibold">¿Por qué te gustaría ser mentor en esta plataforma? *</label>
+                            <textarea
+                              name="motivacion"
+                              value={perfil.motivacion}
+                              onChange={handleChange}
+                              rows={4}
+                              placeholder="Comparte tu motivación para guiar a emprendedores..."
+                              className={`w-full border-2 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                                formErrors[7]?.includes("motivacion") ? "border-red-500" : "border-gray-300 focus:border-blue-500"
+                              }`}
+                            ></textarea>
+                            {formErrors[7]?.includes("motivacion") && (
+                              <p className="text-red-500 text-sm mt-1">Este campo es obligatorio</p>
                             )}
                           </div>
-                          
-                          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                            <div className="flex items-start space-x-3">
-                              <svg className="w-5 h-5 text-blue-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                              </svg>
-                              <div>
-                                <h4 className="text-blue-800 font-medium">Próximos pasos</h4>
-                                <p className="text-sm text-blue-700 mt-1">
-                                  Nuestro equipo revisará tu perfil y te contactaremos en las próximas 48 horas para completar el proceso de validación.
-                                </p>
-                              </div>
-                            </div>
+                          <div className="flex items-center">
+                            <input
+                              type="checkbox"
+                              name="confirmacionEntrevista"
+                              checked={perfil.confirmacionEntrevista}
+                              onChange={handleChange}
+                              className={`h-5 w-5 text-blue-600 rounded focus:ring-blue-500 ${
+                                formErrors[7]?.includes("confirmacionEntrevista") ? "border-red-500" : "border-gray-300"
+                              }`}
+                            />
+                            <label htmlFor="confirmacionEntrevista" className="ml-3 text-gray-700 font-semibold">
+                              Confirmo que la información proporcionada es verídica y acepto ser contactado para una entrevista inicial. *
+                            </label>
+                          </div>
+                          {formErrors[7]?.includes("confirmacionEntrevista") && (
+                            <p className="text-red-500 text-sm mt-1">Debes aceptar los términos para continuar.</p>
+                          )}
+                          <div className="flex items-center">
+                            <input
+                              type="checkbox"
+                              name="isVisibleInAsesoria"
+                              checked={perfil.isVisibleInAsesoria}
+                              onChange={handleChange}
+                              className="h-5 w-5 text-blue-600 rounded focus:ring-blue-500"
+                            />
+                            <label htmlFor="isVisibleInAsesoria" className="ml-3 text-gray-700 font-semibold">
+                              Quiero que mi perfil sea visible para emprendedores una vez aprobado.
+                            </label>
                           </div>
                         </div>
                       </div>
@@ -1059,52 +958,40 @@ const Asesoria = () => {
                   </div>
                 </div>
 
-                {/* Botones de navegación mejorados */}
-                <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-200">
+                {/* Botones de navegación del formulario */}
+                <div className="flex justify-between mt-8">
                   <button
+                    type="button"
                     onClick={prevCard}
                     disabled={currentCardIndex === 0}
-                    className={`px-6 py-3 rounded-lg flex items-center space-x-2 font-medium transition-all duration-300 ${
-                      currentCardIndex === 0 
-                        ? "bg-gray-200 text-gray-400 cursor-not-allowed" 
-                        : "bg-gray-600 text-white hover:bg-gray-700 hover:shadow-lg transform hover:-translate-y-0.5"
-                    }`}
+                    className="flex items-center px-6 py-3 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300 transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M12.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L9.414 10l3.293 3.293a1 1 0 010 1.414z" clipRule="evenodd" />
+                    <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
                     </svg>
-                    <span>Anterior</span>
+                    Anterior
                   </button>
-                  
-                  {currentCardIndex < totalCards - 1 ? (
+                  {currentCardIndex < totalCards - 1 && (
                     <button
+                      type="button"
                       onClick={nextCard}
-                      className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-medium flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                      className="flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-300 shadow-lg transform hover:scale-105"
                     >
-                      <span>Siguiente</span>
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      Siguiente
+                      <svg className="w-5 h-5 ml-2" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
                       </svg>
                     </button>
-                  ) : (
+                  )}
+                  {currentCardIndex === totalCards - 1 && (
                     <button
                       onClick={submitPerfil}
-                      disabled={isLoading}
-                      className="bg-gradient-to-r from-green-600 to-blue-600 text-white px-8 py-3 rounded-lg hover:from-green-700 hover:to-blue-700 transition-all duration-300 font-medium flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex items-center px-8 py-3 bg-green-600 text-white rounded-full hover:bg-green-700 transition-all duration-300 shadow-lg transform hover:scale-105 font-semibold text-lg"
                     >
-                      {isLoading ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          <span>Guardando...</span>
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                          </svg>
-                          <span>{editingKey ? "Actualizar Perfil" : "Crear Perfil"}</span>
-                        </>
-                      )}
+                      <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M5 4a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2H5zm-1 9v-1h12v1H4zm1-8h10V6H5V5z" />
+                      </svg>
+                      {editingKey ? "Actualizar Perfil" : "Enviar Registro"}
                     </button>
                   )}
                 </div>
@@ -1112,373 +999,326 @@ const Asesoria = () => {
             </div>
           )}
 
-          {/* Sección de mentores con filtros mejorados */}
+          {/* Secciones de la vista hardcodeada */}
           {!showForm && (
-            <div className="mt-12">
-              <div className="flex flex-col md:flex-row justify-between items-center mb-8 space-y-4 md:space-y-0">
-                <h2 className="text-3xl font-bold text-gray-800">Mentores Disponibles</h2>
-                
-                {/* Filtros */}
-                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="Buscar mentor..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                    <svg className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-                    </svg>
+            <div className="space-y-12">
+              {/* Sección: Sistema de Booking de Sesiones */}
+              <section id="booking-system" className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+                <h2 className="text-3xl font-bold text-gray-800 mb-6 border-b-2 border-blue-500 pb-3">
+                  1. Sistema de Booking de Sesiones
+                </h2>
+                <div className="grid md:grid-cols-2 gap-8">
+                  <div className="bg-gradient-to-br from-blue-50 to-purple-50 p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <h3 className="text-xl font-semibold text-blue-800 mb-4">Agendar Nueva Sesión</h3>
+                    <div className="mb-4">
+                      <label htmlFor="session-type" className="block text-gray-700 text-sm font-medium mb-2">Tipo de Sesión:</label>
+                      <select id="session-type" className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="consultoria">Consultoría General</option>
+                        <option value="desarrollo">Desarrollo Profesional</option>
+                        <option value="tecnica">Asesoría Técnica</option>
+                      </select>
+                    </div>
+                    <div className="mb-4">
+                      <label htmlFor="session-date" className="block text-gray-700 text-sm font-medium mb-2">Fecha:</label>
+                      <input type="date" id="session-date" value="2025-08-15" className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <div className="mb-6">
+                      <label htmlFor="session-time" className="block text-gray-700 text-sm font-medium mb-2">Hora:</label>
+                      <input type="time" id="session-time" value="10:00" className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-300 shadow-md font-semibold">
+                      Buscar Disponibilidad
+                    </button>
                   </div>
-                  
-                  <select
-                    value={filterArea}
-                    onChange={(e) => setFilterArea(e.target.value)}
-                    className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Todas las áreas</option>
-                    {uniqueAreas.map(area => (
-                      <option key={area} value={area}>{area}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Estadísticas */}
-              <div className="grid md:grid-cols-3 gap-6 mb-8">
-                <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-gray-600 text-sm font-medium">Total Mentores</p>
-                      <p className="text-3xl font-bold text-blue-600">{filteredPerfiles.length}</p>
+                  <div className="bg-gradient-to-br from-blue-50 to-purple-50 p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <h3 className="text-xl font-semibold text-blue-800 mb-4">Tus Próximas Sesiones</h3>
+                    <div className="space-y-3">
+                      <p className="text-gray-700"><strong className="text-blue-700">Sesión:</strong> Consultoría de Negocios</p>
+                      <p className="text-gray-700"><strong className="text-blue-700">Consultor:</strong> Dr. Alex Rivera</p>
+                      <p className="text-gray-700"><strong className="text-blue-700">Fecha y Hora:</strong> 15 de Agosto, 2025 - 10:00 AM</p>
                     </div>
-                    <div className="bg-blue-100 p-3 rounded-full">
-                      <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                      </svg>
-                    </div>
+                    <button className="mt-6 w-full bg-red-500 text-white px-6 py-3 rounded-full hover:bg-red-600 transition-all duration-300 shadow-md font-semibold">
+                      Cancelar Sesión
+                    </button>
                   </div>
                 </div>
-                
-                <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-gray-600 text-sm font-medium">Áreas Especializadas</p>
-                      <p className="text-3xl font-bold text-purple-600">{uniqueAreas.length}</p>
-                    </div>
-                    <div className="bg-purple-100 p-3 rounded-full">
-                      <svg className="w-6 h-6 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-gray-600 text-sm font-medium">Conexiones Activas</p>
-                      <p className="text-3xl font-bold text-green-600">24/7</p>
-                    </div>
-                    <div className="bg-green-100 p-3 rounded-full">
-                      <svg className="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              </section>
 
-              {/* Carrusel de perfiles mejorado */}
-              {filteredPerfiles.length > 0 ? (
-                <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
-                  <Slider {...settings}>
-                    {filteredPerfiles.map((p) => (
-                      <div key={p._key} className="px-4">
-                        <div
-                          className="bg-gradient-to-br from-white to-gray-50 p-6 rounded-xl shadow-lg cursor-pointer hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-100 group"
-                          onClick={() => handleSelectConsultant(p)}
-                        >
-                          {/* Avatar y ubicación */}
-                          <div className="relative mb-4">
-                            <img
-                              src={p.profileImageUrl}
-                              alt={p.nombreCompleto}
-                              className="w-20 h-20 rounded-full mx-auto shadow-lg border-4 border-white group-hover:scale-110 transition-transform duration-300"
-                            />
-                            <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2">
-                              <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full flex items-center space-x-1">
-                                <div className="w-2 h-2 bg-green-300 rounded-full animate-pulse"></div>
-                                <span>Online</span>
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Información básica */}
-                          <div className="text-center mb-4">
-                            <h3 className="text-xl font-bold text-gray-800 mb-2 group-hover:text-blue-600 transition-colors">
-                              {p.nombreCompleto}
-                            </h3>
-                            <div className="flex items-center justify-center text-gray-600 mb-2">
-                              <svg className="w-4 h-4 mr-1 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                              </svg>
-                              <span className="text-sm">{p.ciudadPais}</span>
-                            </div>
-                            <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
-                              p.role === "MENTOR" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
-                            }`}>
-                              {p.role === "MENTOR" ? "Mentor Certificado" : "Emprendedor"}
-                            </span>
-                          </div>
-
-                          {/* Experiencia */}
-                          <div className="mb-4">
-                            <div className="flex items-center justify-center mb-2">
-                              <svg className="w-4 h-4 mr-1 text-orange-500" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M6 6V5a3 3 0 013-3h2a3 3 0 013 3v1h2a2 2 0 012 2v3.57A22.952 22.952 0 0110 13a22.95 22.95 0 01-8-1.43V8a2 2 0 012-2h2zm2-1a1 1 0 011-1h2a1 1 0 011 1v1H8V5zm1 5a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1z" clipRule="evenodd" />
-                              </svg>
-                              <span className="text-sm font-semibold text-gray-700">Experiencia: {p.anosExperiencia}</span>
-                            </div>
-                            <p className="text-sm text-gray-600 text-center">{p.areaEstudios}</p>
-                          </div>
-
-                          {/* Áreas de especialidad */}
-                          <div className="mb-4">
-                            <p className="text-sm font-semibold text-gray-700 text-center mb-2">Especialidades:</p>
-                            <div className="flex flex-wrap gap-1 justify-center">
-                              {p.areasExperiencia.slice(0, 2).map((area, index) => (
-                                <span 
-                                  key={index} 
-                                  className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full"
+              {/* Sección: Algoritmo de Matching con Consultores */}
+              <section id="consultant-matching" className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+                <h2 className="text-3xl font-bold text-gray-800 mb-6 border-b-2 border-blue-500 pb-3">
+                  2. Algoritmo de Matching con Consultores
+                </h2>
+                <div className="grid md:grid-cols-2 gap-8">
+                  <div className="bg-gradient-to-br from-blue-50 to-purple-50 p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <h3 className="text-xl font-semibold text-blue-800 mb-4">Consultores Recomendados</h3>
+                    <ul className="space-y-4">
+                      {/* Aquí se mostrarán los perfiles cargados y filtrados */}
+                      {filteredPerfiles.length > 0 ? (
+                        <Slider {...settings}>
+                          {filteredPerfiles.map((perfil) => (
+                            <div key={perfil._key} className="p-2">
+                              <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 flex flex-col items-center text-center">
+                                <img
+                                  src={perfil.profileImageUrl || "/images/default-profile.jpg"}
+                                  alt={perfil.nombreCompleto}
+                                  className="w-24 h-24 rounded-full object-cover mb-4 border-2 border-blue-400"
+                                />
+                                <h4 className="text-lg font-bold text-gray-800 mb-1">{perfil.nombreCompleto}</h4>
+                                <p className="text-sm text-gray-600 mb-2">{perfil.areaEstudios}</p>
+                                <div className="flex justify-center text-yellow-500 mb-3">
+                                  {/* Hardcoded stars for now, replace with dynamic rating later */}
+                                  <span>⭐</span><span>⭐</span><span>⭐</span><span>⭐</span><span>⭐</span>
+                                </div>
+                                <p className="text-xs text-gray-500 italic mb-4">
+                                  "{perfil.motivacion.substring(0, 70)}..." {/* Show snippet */}
+                                </p>
+                                <button
+                                  onClick={() => handleSelectConsultant(perfil)}
+                                  className="bg-blue-500 text-white px-4 py-2 rounded-full text-sm hover:bg-blue-600 transition-colors duration-300 shadow-md"
                                 >
-                                  {area.length > 15 ? `${area.substring(0, 15)}...` : area}
-                                </span>
-                              ))}
-                              {p.areasExperiencia.length > 2 && (
-                                <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full">
-                                  +{p.areasExperiencia.length - 2}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Modalidad de trabajo */}
-                          <div className="mb-4">
-                            <div className="flex items-center justify-center space-x-4 text-xs text-gray-600">
-                              <div className="flex items-center">
-                                <svg className="w-3 h-3 mr-1 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                                </svg>
-                                <span>{p.modalidadTrabajo}</span>
-                              </div>
-                              <div className="flex items-center">
-                                <svg className="w-3 h-3 mr-1 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                                </svg>
-                                <span>{p.disponibilidadSemanal}</span>
+                                  Ver Perfil
+                                </button>
+                                {/* Botones de edición/eliminación si el usuario es administrador o el dueño del perfil */}
+                                {user?.role === "ADMIN" && (
+                                  <div className="mt-3 flex gap-2">
+                                    <button
+                                      onClick={() => editPerfil(perfil)}
+                                      className="bg-yellow-500 text-white px-3 py-1 rounded-md text-xs hover:bg-yellow-600 transition-colors"
+                                    >
+                                      Editar
+                                    </button>
+                                    <button
+                                      onClick={() => deletePerfil(perfil._key)}
+                                      className="bg-red-500 text-white px-3 py-1 rounded-md text-xs hover:bg-red-600 transition-colors"
+                                    >
+                                      Eliminar
+                                    </button>
+                                  </div>
+                                )}
                               </div>
                             </div>
-                          </div>
+                          ))}
+                        </Slider>
+                      ) : (
+                        <p className="text-center text-gray-500">No hay mentores disponibles que coincidan con los criterios.</p>
+                      )}
+                    </ul>
+                    <p className="text-sm text-gray-600 mt-4 text-center">Basado en tus preferencias y historial.</p>
+                  </div>
 
-                          {/* Botón de acción */}
-                          <div className="text-center">
-                            <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-300 transform group-hover:scale-105 font-medium text-sm">
-                              Ver Perfil Completo
-                            </button>
-                          </div>
+                  <div className="bg-gradient-to-br from-blue-50 to-purple-50 p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <h3 className="text-xl font-semibold text-blue-800 mb-4">Filtrar Consultores</h3>
+                    <div className="mb-4">
+                      <label htmlFor="search-term" className="block text-gray-700 text-sm font-medium mb-2">Buscar por nombre, área o ciudad:</label>
+                      <input
+                        type="text"
+                        id="search-term"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="Ej: Marketing, María, Guadalajara"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div className="mb-6">
+                      <label htmlFor="filter-area" className="block text-gray-700 text-sm font-medium mb-2">Filtrar por Área de Experiencia:</label>
+                      <select
+                        id="filter-area"
+                        value={filterArea}
+                        onChange={(e) => setFilterArea(e.target.value)}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Todas las áreas</option>
+                        {uniqueAreas.map((area) => (
+                          <option key={area} value={area}>{area}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <button
+                      onClick={() => { /* Implement filtering logic, currently done via state */ }}
+                      className="w-full bg-blue-500 text-white px-6 py-3 rounded-full hover:bg-blue-600 transition-all duration-300 shadow-md font-semibold"
+                    >
+                      Aplicar Filtros
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              {/* Detalles del consultor seleccionado (condicional) */}
+              {selectedConsultant && (
+                <section id="consultant-details" className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+                  <h2 className="text-3xl font-bold text-gray-800 mb-6 border-b-2 border-blue-500 pb-3">
+                    Detalles del Consultor: {selectedConsultant.nombreCompleto}
+                  </h2>
+                  <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
+                    <img
+                      src={selectedConsultant.profileImageUrl || "/images/default-profile.jpg"}
+                      alt={selectedConsultant.nombreCompleto}
+                      className="w-40 h-40 rounded-full object-cover border-4 border-blue-300 shadow-lg"
+                    />
+                    <div className="flex-1 text-center md:text-left">
+                      <h3 className="text-2xl font-bold text-blue-700 mb-2">{selectedConsultant.nombreCompleto}</h3>
+                      <p className="text-gray-700 mb-1"><strong>Correo:</strong> {selectedConsultant.correo}</p>
+                      <p className="text-gray-700 mb-1"><strong>Teléfono:</strong> {selectedConsultant.telefono}</p>
+                      <p className="text-gray-700 mb-1"><strong>Ubicación:</strong> {selectedConsultant.ciudadPais}</p>
+                      <p className="text-gray-700 mb-1"><strong>Último Grado:</strong> {selectedConsultant.ultimoGrado} en {selectedConsultant.areaEstudios}</p>
+                      <p className="text-gray-700 mb-1"><strong>Años Experiencia:</strong> {selectedConsultant.anosExperiencia}</p>
+                      <p className="text-gray-700 mb-1"><strong>Experiencia MIPYMES:</strong> {selectedConsultant.experienciaMipymes}</p>
+                      <p className="text-gray-700 mb-1"><strong>Áreas de Expertise:</strong> {selectedConsultant.areasExperiencia.join(', ')}</p>
+                      <p className="text-gray-700 mb-1"><strong>Caso de Éxito:</strong> {selectedConsultant.casoExito}</p>
+                      <p className="text-gray-700 mb-1"><strong>Tipo de Acompañamiento:</strong> {selectedConsultant.tipoAcompanamiento}</p>
+                      <p className="text-gray-700 mb-1"><strong>Modalidad de Trabajo:</strong> {selectedConsultant.modalidadTrabajo}</p>
+                      <p className="text-gray-700 mb-1"><strong>Disponibilidad Semanal:</strong> {selectedConsultant.disponibilidadSemanal}</p>
+                      <p className="text-gray-700 mb-4"><strong>Tarifa:</strong> {selectedConsultant.tarifa}</p>
+                      <p className="text-gray-800 italic mb-4">"{selectedConsultant.motivacion}"</p>
+                      <button
+                        onClick={() => setSelectedConsultant(null)}
+                        className="bg-gray-400 text-white px-6 py-3 rounded-full hover:bg-gray-500 transition-all duration-300 shadow-md font-semibold"
+                      >
+                        Cerrar Detalles
+                      </button>
+                      <button
+                        onClick={() => alert(`Agendando sesión con ${selectedConsultant.nombreCompleto}`)}
+                        className="ml-4 bg-green-500 text-white px-6 py-3 rounded-full hover:bg-green-600 transition-all duration-300 shadow-md font-semibold"
+                      >
+                        Agendar Sesión
+                      </button>
+                    </div>
+                  </div>
+                </section>
+              )}
+
+
+              {/* Sección: Interfaz de Agenda y Disponibilidad (Hardcoded para diseño) */}
+              <section id="agenda-availability" className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+                <h2 className="text-3xl font-bold text-gray-800 mb-6 border-b-2 border-blue-500 pb-3">
+                  3. Interfaz de Agenda y Disponibilidad
+                </h2>
+                <div className="grid md:grid-cols-2 gap-8">
+                  <div className="bg-gradient-to-br from-blue-50 to-purple-50 p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <h3 className="text-xl font-semibold text-blue-800 mb-4">Mi Calendario de Sesiones</h3>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 text-center">
+                      <div className="bg-green-100 text-green-800 p-3 rounded-lg cursor-pointer hover:bg-green-200 transition-colors duration-200">Mañana (9:00 AM)</div>
+                      <div className="bg-red-100 text-red-800 p-3 rounded-lg cursor-not-allowed opacity-70">Mañana (10:00 AM)</div>
+                      <div className="bg-green-100 text-green-800 p-3 rounded-lg cursor-pointer hover:bg-green-200 transition-colors duration-200">Mañana (11:00 AM)</div>
+                      <div className="bg-green-100 text-green-800 p-3 rounded-lg cursor-pointer hover:bg-green-200 transition-colors duration-200">Tarde (2:00 PM)</div>
+                      <div className="bg-red-100 text-red-800 p-3 rounded-lg cursor-not-allowed opacity-70">Tarde (3:00 PM)</div>
+                      <div className="bg-green-100 text-green-800 p-3 rounded-lg cursor-pointer hover:bg-green-200 transition-colors duration-200">Tarde (4:00 PM)</div>
+                      <div className="bg-green-100 text-green-800 p-3 rounded-lg cursor-pointer hover:bg-green-200 transition-colors duration-200">Viernes (9:00 AM)</div>
+                      <div className="bg-red-100 text-red-800 p-3 rounded-lg cursor-not-allowed opacity-70">Viernes (10:00 AM)</div>
+                    </div>
+                    <p className="mt-4 text-sm text-gray-600 text-center">
+                      Slots verdes: disponibles. Slots rojos: reservados.
+                    </p>
+                  </div>
+                  <div className="bg-gradient-to-br from-blue-50 to-purple-50 p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <h3 className="text-xl font-semibold text-blue-800 mb-4">Establecer mi Disponibilidad (Consultor)</h3>
+                    <div className="mb-4">
+                      <label htmlFor="start-date" className="block text-gray-700 text-sm font-medium mb-2">Fecha de Inicio:</label>
+                      <input type="date" id="start-date" value="2025-08-01" className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <div className="mb-4">
+                      <label htmlFor="end-date" className="block text-gray-700 text-sm font-medium mb-2">Fecha de Fin:</label>
+                      <input type="date" id="end-date" value="2025-08-31" className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <div className="mb-6">
+                      <label htmlFor="available-times" className="block text-gray-700 text-sm font-medium mb-2">Horarios Disponibles (ej. 9:00-13:00, 15:00-18:00):</label>
+                      <input type="text" id="available-times" value="09:00-13:00, 15:00-18:00" className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <button className="w-full bg-blue-500 text-white px-6 py-3 rounded-full hover:bg-blue-600 transition-all duration-300 shadow-md font-semibold">
+                      Actualizar Disponibilidad
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              {/* Sección: Notificaciones para Citas (Hardcoded para diseño) */}
+              <section id="notifications" className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+                <h2 className="text-3xl font-bold text-gray-800 mb-6 border-b-2 border-blue-500 pb-3">
+                  4. Notificaciones para Citas
+                </h2>
+                <div className="grid md:grid-cols-2 gap-8">
+                  <div className="bg-gradient-to-br from-blue-50 to-purple-50 p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <h3 className="text-xl font-semibold text-blue-800 mb-4">Notificaciones Recientes</h3>
+                    <div className="space-y-3">
+                      <div className="bg-yellow-100 border border-yellow-300 p-3 rounded-lg flex justify-between items-center shadow-sm">
+                        <span className="text-yellow-800">Recordatorio: Sesión con Dr. Rivera mañana a las 10 AM.</span>
+                        <button className="bg-blue-500 text-white px-4 py-2 rounded-full text-sm hover:bg-blue-600 transition-colors">Ver</button>
+                      </div>
+                      <div className="bg-blue-100 border border-blue-300 p-3 rounded-lg flex justify-between items-center shadow-sm">
+                        <span className="text-blue-800">Nueva solicitud de sesión de Juan Pérez.</span>
+                        <button className="bg-blue-500 text-white px-4 py-2 rounded-full text-sm hover:bg-blue-600 transition-colors">Ver</button>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-4 text-center">Configura tus preferencias de notificación.</p>
+                  </div>
+                  <div className="bg-gradient-to-br from-blue-50 to-purple-50 p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <h3 className="text-xl font-semibold text-blue-800 mb-4">Configuración de Notificaciones</h3>
+                    <div className="space-y-4">
+                      <div className="flex items-center">
+                        <input type="checkbox" id="email-notif" defaultChecked className="h-5 w-5 text-blue-600 rounded focus:ring-blue-500" />
+                        <label htmlFor="email-notif" className="ml-3 text-gray-700 font-medium">Notificaciones por Email</label>
+                      </div>
+                      <div className="flex items-center">
+                        <input type="checkbox" id="sms-notif" className="h-5 w-5 text-blue-600 rounded focus:ring-blue-500" />
+                        <label htmlFor="sms-notif" className="ml-3 text-gray-700 font-medium">Notificaciones por SMS</label>
+                      </div>
+                      <div className="flex items-center">
+                        <input type="checkbox" id="inapp-notif" defaultChecked className="h-5 w-5 text-blue-600 rounded focus:ring-blue-500" />
+                        <label htmlFor="inapp-notif" className="ml-3 text-gray-700 font-medium">Notificaciones en la Aplicación</label>
+                      </div>
+                    </div>
+                    <button className="mt-6 w-full bg-blue-500 text-white px-6 py-3 rounded-full hover:bg-blue-600 transition-all duration-300 shadow-md font-semibold">
+                      Guardar Preferencias
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              {/* Sección: Vista de Historial de Asesorías (Hardcoded para diseño) */}
+              <section id="history-view" className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+                <h2 className="text-3xl font-bold text-gray-800 mb-6 border-b-2 border-blue-500 pb-3">
+                  5. Vista de Historial de Asesorías
+                </h2>
+                <div className="grid md:grid-cols-1 gap-6">
+                  <div className="bg-gradient-to-br from-green-50 to-blue-50 p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <h3 className="text-xl font-semibold text-green-800 mb-4">Mis Asesorías Anteriores</h3>
+                    <div className="space-y-4">
+                      <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg shadow-sm">
+                        <p className="text-gray-700"><strong className="text-blue-700">Sesión:</strong> Planificación Estratégica</p>
+                        <p className="text-gray-700"><strong className="text-blue-700">Consultor:</strong> Dr. Alex Rivera</p>
+                        <p className="text-gray-700"><strong className="text-blue-700">Fecha:</strong> 20 de Julio, 2025</p>
+                        <p className="text-gray-700 mb-3"><strong className="text-blue-700">Estado:</strong> <span className="text-green-600 font-semibold">Completada</span></p>
+                        <div className="flex space-x-3">
+                          <button className="bg-blue-500 text-white px-4 py-2 rounded-full text-sm hover:bg-blue-600 transition-colors shadow-md">Ver Detalles</button>
+                          <button className="bg-yellow-500 text-white px-4 py-2 rounded-full text-sm hover:bg-yellow-600 transition-colors shadow-md">Dejar Reseña</button>
                         </div>
                       </div>
-                    ))}
-                  </Slider>
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-800 mb-2">No se encontraron mentores</h3>
-                  <p className="text-gray-600 mb-4">
-                    {searchTerm || filterArea 
-                      ? "Intenta ajustar tus filtros de búsqueda" 
-                      : "Aún no hay mentores disponibles en esta sección"
-                    }
-                  </p>
-                  {(searchTerm || filterArea) && (
-                    <button
-                      onClick={() => {
-                        setSearchTerm("");
-                        setFilterArea("");
-                      }}
-                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      Limpiar Filtros
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Modal de detalles del consultor mejorado */}
-          {selectedConsultant && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                {/* Header del modal */}
-                <div className="relative bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 rounded-t-2xl">
-                  <button
-                    onClick={() => setSelectedConsultant(null)}
-                    className="absolute top-4 right-4 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-full p-2 transition-all"
-                  >
-                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                  
-                  <div className="flex items-center space-x-4">
-                    <img
-                      src={selectedConsultant.profileImageUrl}
-                      alt={selectedConsultant.nombreCompleto}
-                      className="w-20 h-20 rounded-full border-4 border-white shadow-lg"
-                    />
-                    <div>
-                      <h2 className="text-2xl font-bold">{selectedConsultant.nombreCompleto}</h2>
-                      <p className="text-blue-100">{selectedConsultant.areaEstudios}</p>
-                      <div className="flex items-center mt-2">
-                        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                        </svg>
-                        <span className="text-blue-100">{selectedConsultant.ciudadPais}</span>
+                      <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg shadow-sm">
+                        <p className="text-gray-700"><strong className="text-blue-700">Sesión:</strong> Introducción a AWS Cloud</p>
+                        <p className="text-gray-700"><strong className="text-blue-700">Consultor:</strong> Lic. Sofía García</p>
+                        <p className="text-gray-700"><strong className="text-blue-700">Fecha:</strong> 10 de Julio, 2025</p>
+                        <p className="text-gray-700 mb-3"><strong className="text-blue-700">Estado:</strong> <span className="text-green-600 font-semibold">Completada</span></p>
+                        <button className="bg-blue-500 text-white px-4 py-2 rounded-full text-sm hover:bg-blue-600 transition-colors shadow-md">Ver Detalles</button>
+                      </div>
+                      <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg shadow-sm">
+                        <p className="text-gray-700"><strong className="text-blue-700">Sesión:</strong> Revisión de CV</p>
+                        <p className="text-gray-700"><strong className="text-blue-700">Consultor:</strong> Mtro. Carlos López</p>
+                        <p className="text-gray-700"><strong className="text-blue-700">Fecha:</strong> 01 de Julio, 2025</p>
+                        <p className="text-gray-700 mb-3"><strong className="text-blue-700">Estado:</strong> <span className="text-green-600 font-semibold">Completada</span></p>
+                        <button className="bg-blue-500 text-white px-4 py-2 rounded-full text-sm hover:bg-blue-600 transition-colors shadow-md">Ver Detalles</button>
                       </div>
                     </div>
                   </div>
                 </div>
-
-                {/* Contenido del modal */}
-                <div className="p-6 space-y-6">
-                  {/* Información básica */}
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <h4 className="font-semibold text-gray-800 mb-2">Experiencia</h4>
-                      <p className="text-gray-600">{selectedConsultant.anosExperiencia}</p>
-                    </div>
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <h4 className="font-semibold text-gray-800 mb-2">Modalidad</h4>
-                      <p className="text-gray-600">{selectedConsultant.modalidadTrabajo}</p>
-                    </div>
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <h4 className="font-semibold text-gray-800 mb-2">Disponibilidad</h4>
-                      <p className="text-gray-600">{selectedConsultant.disponibilidadSemanal}</p>
-                    </div>
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <h4 className="font-semibold text-gray-800 mb-2">Tipo de acompañamiento</h4>
-                      <p className="text-gray-600">{selectedConsultant.tipoAcompanamiento}</p>
-                    </div>
-                  </div>
-
-                  {/* Áreas de experiencia */}
-                  <div>
-                    <h4 className="font-semibold text-gray-800 mb-3">Áreas de Especialidad</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedConsultant.areasExperiencia.map((area, index) => (
-                        <span 
-                          key={index} 
-                          className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium"
-                        >
-                          {area}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Caso de éxito */}
-                  <div>
-                    <h4 className="font-semibold text-gray-800 mb-3">Caso de Éxito</h4>
-                    <div className="bg-green-50 border-l-4 border-green-400 p-4 rounded-r-lg">
-                      <p className="text-gray-700 italic">"{selectedConsultant.casoExito}"</p>
-                    </div>
-                  </div>
-
-                  {/* Experiencia con MIPYMES */}
-                  <div>
-                    <h4 className="font-semibold text-gray-800 mb-2">Experiencia con MIPYMES</h4>
-                    <p className="text-gray-600">{selectedConsultant.experienciaMipymes}</p>
-                  </div>
-
-                  {/* Tarifas */}
-                  <div>
-                    <h4 className="font-semibold text-gray-800 mb-2">Tarifas</h4>
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                      <p className="text-blue-800 font-medium">{selectedConsultant.tarifa}</p>
-                    </div>
-                  </div>
-
-                  {/* Botones de acción */}
-                  <div className="border-t pt-6">
-                    {selectedConsultant.userId === user?.uid ? (
-                      <div className="flex space-x-4">
-                        <button
-                          onClick={() => {
-                            if (selectedConsultant && typeof selectedConsultant._key === "string") {
-                              editPerfil(selectedConsultant as PerfilWithKey);
-                              setSelectedConsultant(null);
-                            }
-                          }}
-                          className="flex-1 bg-yellow-500 text-white px-6 py-3 rounded-lg hover:bg-yellow-600 transition-all duration-300 font-medium flex items-center justify-center space-x-2"
-                        >
-                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                          </svg>
-                          <span>Editar Perfil</span>
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (typeof selectedConsultant._key === "string") {
-                              deletePerfil(selectedConsultant._key);
-                              setSelectedConsultant(null);
-                            }
-                          }}
-                          className="flex-1 bg-red-500 text-white px-6 py-3 rounded-lg hover:bg-red-600 transition-all duration-300 font-medium flex items-center justify-center space-x-2"
-                        >
-                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clipRule="evenodd" />
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414L8.586 12l-1.293 1.293a1 1 0 101.414 1.414L10 13.414l1.293 1.293a1 1 0 001.414-1.414L11.414 12l1.293-1.293z" clipRule="evenodd" />
-                          </svg>
-                          <span>Eliminar</span>
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <button
-                          className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-medium flex items-center justify-center space-x-2 shadow-lg"
-                          onClick={() => alert(`Iniciando conexión con ${selectedConsultant.nombreCompleto}...`)}
-                        >
-                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
-                          </svg>
-                          <span>Contactar Mentor</span>
-                        </button>
-                        <button
-                          className="w-full bg-white border-2 border-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-all duration-300 font-medium flex items-center justify-center space-x-2"
-                          onClick={() => alert(`Guardando ${selectedConsultant.nombreCompleto} en favoritos...`)}
-                        >
-                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" />
-                          </svg>
-                          <span>Guardar en Favoritos</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+              </section>
             </div>
           )}
         </div>
+
+        <footer className="text-center py-8 text-gray-600 text-sm border-t border-gray-200 mt-12 bg-white shadow-inner">
+          <p>&copy; 2025 Sistema de Booking de Sesiones. Todos los derechos reservados.</p>
+        </footer>
       </div>
     </PrivateLayout>
   );
