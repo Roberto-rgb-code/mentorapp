@@ -1,406 +1,161 @@
-import { useState, useEffect, ChangeEvent } from "react";
-import { useAuth } from "../../contexts/AuthContext";
-import s3 from "../../lib/aws";
-import {
-  PutObjectCommand,
-  GetObjectCommand,
-  ListObjectsV2Command,
-  DeleteObjectCommand,
-} from "@aws-sdk/client-s3";
-import PrivateLayout from "../../components/layout/PrivateLayout";
+// pages/dashboard/cursos.tsx
+import React, { useEffect, useState } from 'react';
+import PrivateLayout from '../../components/layout/PrivateLayout'; // Asegúrate de que la ruta sea correcta
+import { Curso } from '../../types/Curso'; // Asegúrate de que la ruta sea correcta
+import { toast } from 'react-toastify';
+import Link from 'next/link';
+import { FaPlus, FaSpinner, FaBookOpen, FaSearch } from 'react-icons/fa'; // Iconos actualizados con FaSearch
 
-// Interfaz para los datos del curso
-interface CursoData {
-  userId: string;
-  titulo: string;
-  descripcion: string;
-  videoUrl?: string;
-  createdAt: string;
-}
+// Importaciones de los componentes
+import CourseCard from '../../components/courses/CourseCard'; 
+import CategorySidebar from '../../components/courses/CategorySidebar'; // Importa el nuevo componente del sidebar
 
-const Cursos = () => {
-  const { user } = useAuth();
-  const [cursos, setCursos] = useState<(CursoData & { _key: string })[]>([]);
-  const [filteredCursos, setFilteredCursos] = useState<(CursoData & { _key: string })[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCurso, setSelectedCurso] = useState<(CursoData & { _key: string }) | null>(null);
-  const [mensaje, setMensaje] = useState<{ error?: string; success?: string }>({});
-  const [showForm, setShowForm] = useState(false);
-  const [editingKey, setEditingKey] = useState<string | null>(null);
-  const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
+const CursosPage: React.FC = () => {
+  const [cursos, setCursos] = useState<Curso[]>([]);
+  const [categories, setCategories] = useState<string[]>([]); // Estado para las categorías únicas
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null); // Estado para la categoría seleccionada
 
-  // Estado inicial del curso
-  const initialCurso: CursoData = {
-    userId: user?.uid || "",
-    titulo: "",
-    descripcion: "",
-    videoUrl: "",
-    createdAt: new Date().toISOString(),
-  };
-  const [curso, setCurso] = useState<CursoData>(initialCurso);
-  const [videoFile, setVideoFile] = useState<File | null>(null);
+  // NOTA IMPORTANTE: En una aplicación real, aquí deberías:
+  // 1. Obtener el rol del usuario actual (ej. de tu AuthContext).
+  // 2. Usar ese rol para determinar si mostrar el botón "Crear Nuevo Curso".
+  const currentUserIsInstructor = true; // Placeholder: reemplaza con lógica de autenticación real
 
-  // Cargar cursos desde S3
   useEffect(() => {
-    if (!user) {
-      setMensaje({ error: "Inicia sesión primero." });
-      return;
-    }
-    const fetchCursos = async () => {
+    const fetchData = async () => {
       try {
-        const list = await s3.send(
-          new ListObjectsV2Command({ Bucket: process.env.NEXT_PUBLIC_S3_BUCKET!, Prefix: "cursos/" })
-        );
-        const items = list.Contents?.map((i) => i.Key!).filter(Boolean) || [];
-        const datos = await Promise.all(
-          items.map(async (Key) => {
-            if (!Key.endsWith('.json')) return null;
-            try {
-              const res = await s3.send(new GetObjectCommand({ Bucket: process.env.NEXT_PUBLIC_S3_BUCKET!, Key }));
-              const body = await res.Body?.transformToString('utf-8');
-              if (body) {
-                const data = JSON.parse(body) as CursoData;
-                return { ...data, _key: Key };
-              }
-              return null;
-            } catch (fetchError) {
-              console.error(`Error al leer el archivo ${Key}:`, fetchError);
-              return null;
-            }
-          })
-        );
-        const uniqueDatos = datos
-          .filter((d): d is CursoData & { _key: string } => d !== null)
-          .filter((d, index, self) => index === self.findIndex((t) => t._key === d._key));
-        setCursos(uniqueDatos);
-        setFilteredCursos(uniqueDatos);
-        // Seleccionar el primer curso por defecto si existe
-        if (uniqueDatos.length > 0) {
-          setSelectedCurso(uniqueDatos[0]);
+        // Fetch de los cursos
+        const coursesResponse = await fetch('/api/courses');
+        if (!coursesResponse.ok) {
+          throw new Error('Error al cargar los cursos');
         }
-      } catch (e) {
-        console.error("Error al cargar cursos:", e);
-        setMensaje({ error: "Error al cargar cursos." });
+        const coursesData: Curso[] = await coursesResponse.json();
+        setCursos(coursesData);
+
+        // Fetch de las categorías
+        const categoriesResponse = await fetch('/api/categories');
+        if (!categoriesResponse.ok) {
+          throw new Error('Error al cargar las categorías');
+        }
+        const categoriesData: string[] = await categoriesResponse.json();
+        setCategories(categoriesData);
+
+      } catch (err: any) {
+        console.error('Error fetching data:', err);
+        setError(err.message || 'Hubo un problema al cargar los datos.');
+        toast.error('No se pudieron cargar los datos.');
+      } finally {
+        setLoading(false);
       }
     };
-    fetchCursos();
-  }, [user]);
 
-  // Filtrar cursos según el término de búsqueda
-  useEffect(() => {
-    if (!searchTerm) {
-      setFilteredCursos(cursos);
-      if (cursos.length > 0 && !selectedCurso) {
-        setSelectedCurso(cursos[0]);
-      }
-      return;
-    }
-    const lowerSearchTerm = searchTerm.toLowerCase();
-    const filtered = cursos.filter(
-      (c) =>
-        c.titulo.toLowerCase().includes(lowerSearchTerm) ||
-        c.descripcion.toLowerCase().includes(lowerSearchTerm)
+    fetchData();
+  }, []);
+
+  // Lógica de filtrado combinada: búsqueda y categoría
+  const filteredCursos = cursos.filter(curso => {
+    const matchesSearchTerm = 
+      curso.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      curso.descripcionCorta.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      curso.instructorNombre.toLowerCase().includes(searchTerm.toLowerCase());
+      // No incluimos categoría en la búsqueda de texto si ya tenemos un filtro dedicado
+
+    const matchesCategory = 
+      selectedCategory === null || // Si no hay categoría seleccionada, todos coinciden
+      curso.categoria.toLowerCase() === selectedCategory.toLowerCase();
+      
+    return matchesSearchTerm && matchesCategory;
+  });
+
+  if (loading) {
+    return (
+      <PrivateLayout>
+        <div className="flex justify-center items-center h-screen">
+          <FaSpinner className="animate-spin text-5xl text-blue-500" />
+          <p className="ml-4 text-xl text-gray-700">Cargando cursos y categorías...</p>
+        </div>
+      </PrivateLayout>
     );
-    setFilteredCursos(filtered);
-    if (filtered.length > 0) {
-      setSelectedCurso(filtered[0]);
-    } else {
-      setSelectedCurso(null);
-    }
-  }, [searchTerm, cursos]);
+  }
 
-  // Manejar cambios en el formulario
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setCurso((prev) => ({ ...prev, [name]: value }));
-    setFormErrors((prev) => {
-      const newErrors = { ...prev };
-      delete newErrors[name];
-      return newErrors;
-    });
-  };
-
-  // Manejar cambios en el término de búsqueda
-  const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value);
-  };
-
-  // Subir video a S3
-  const uploadVideo = async (file: File) => {
-    try {
-      const Key = `cursos/videos/${user!.uid}-${Date.now()}-${file.name}`;
-      const arrayBuffer = await file.arrayBuffer();
-      const bodyData = new Uint8Array(arrayBuffer);
-      await s3.send(
-        new PutObjectCommand({
-          Bucket: process.env.NEXT_PUBLIC_S3_BUCKET!,
-          Key,
-          Body: bodyData,
-          ContentType: file.type,
-        })
-      );
-      return `https://${process.env.NEXT_PUBLIC_S3_BUCKET}.s3.${process.env.NEXT_PUBLIC_AWS_REGION}.amazonaws.com/${Key}`;
-    } catch (e) {
-      console.error("Error al subir video:", e);
-      throw e;
-    }
-  };
-
-  // Validar campos requeridos
-  const validateForm = () => {
-    const errors: { [key: string]: string } = {};
-    if (!curso.titulo) errors.titulo = "El título es obligatorio";
-    if (!curso.descripcion) errors.descripcion = "La descripción es obligatoria";
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  // Crear o actualizar curso
-  const submitCurso = async () => {
-    if (!user) {
-      setMensaje({ error: "Inicia sesión primero." });
-      return;
-    }
-    if (!validateForm()) {
-      setMensaje({ error: "Por favor, completa todos los campos obligatorios." });
-      return;
-    }
-    try {
-      if (videoFile) {
-        curso.videoUrl = await uploadVideo(videoFile);
-      }
-      const Key = editingKey || `cursos/${user.uid}-${Date.now()}.json`;
-      await s3.send(
-        new PutObjectCommand({
-          Bucket: process.env.NEXT_PUBLIC_S3_BUCKET!,
-          Key,
-          Body: JSON.stringify({ ...curso, userId: user.uid, createdAt: new Date().toISOString() }),
-          ContentType: "application/json",
-          ContentEncoding: "utf-8",
-        })
-      );
-      setCursos((prev) =>
-        editingKey
-          ? prev.map((c) => (c._key === Key ? { ...curso, _key: Key } : c))
-          : [...prev, { ...curso, _key: Key }]
-      );
-      setMensaje({ success: editingKey ? "Curso actualizado." : "Curso guardado." });
-      setShowForm(false);
-      setEditingKey(null);
-      setCurso(initialCurso);
-      setVideoFile(null);
-      setFormErrors({});
-      // Seleccionar el curso recién creado/actualizado
-      setSelectedCurso({ ...curso, _key: Key });
-    } catch (e) {
-      console.error("Error al guardar curso:", e);
-      setMensaje({ error: "Error al guardar curso." });
-    }
-  };
-
-  // Editar curso
-  const editCurso = (c: CursoData & { _key: string }) => {
-    setCurso(c);
-    setEditingKey(c._key);
-    setShowForm(true);
-    setVideoFile(null);
-  };
-
-  // Eliminar curso
-  const deleteCurso = async (Key: string) => {
-    if (!confirm("¿Estás seguro de eliminar este curso?")) return;
-    try {
-      await s3.send(new DeleteObjectCommand({ Bucket: process.env.NEXT_PUBLIC_S3_BUCKET!, Key }));
-      setCursos((prev) => {
-        const updatedCursos = prev.filter((c) => c._key !== Key);
-        if (selectedCurso?._key === Key) {
-          setSelectedCurso(updatedCursos.length > 0 ? updatedCursos[0] : null);
-        }
-        return updatedCursos;
-      });
-      setFilteredCursos((prev) => {
-        const updatedFiltered = prev.filter((c) => c._key !== Key);
-        if (selectedCurso?._key === Key) {
-          setSelectedCurso(updatedFiltered.length > 0 ? updatedFiltered[0] : null);
-        }
-        return updatedFiltered;
-      });
-      setMensaje({ success: "Curso eliminado." });
-    } catch (e) {
-      console.error("Error al eliminar curso:", e);
-      setMensaje({ error: "No se pudo eliminar el curso." });
-    }
-  };
+  if (error) {
+    return (
+      <PrivateLayout>
+        <div className="flex flex-col justify-center items-center h-screen text-red-600">
+          <p className="text-2xl font-semibold mb-4">Error al cargar:</p>
+          <p className="text-lg">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-6 px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-300"
+          >
+            Reintentar
+          </button>
+        </div>
+      </PrivateLayout>
+    );
+  }
 
   return (
     <PrivateLayout>
-      <div className="container mx-auto px-4 py-8 bg-gray-100 min-h-screen flex flex-col md:flex-row">
-        {/* Sidebar con el catálogo de cursos */}
-        <div className="md:w-1/3 lg:w-1/4 bg-white p-6 rounded-lg shadow-lg border border-gray-200 mb-6 md:mb-0 md:mr-6">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-4">Catálogo de Cursos</h2>
-          {/* Barra de búsqueda */}
-          <div className="relative mb-6">
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={handleSearchChange}
-              placeholder="Buscar cursos..."
-              className="w-full p-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <svg
-              className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </div>
-          {/* Lista de cursos en el catálogo */}
-          <div className="max-h-[calc(100vh-200px)] overflow-y-auto">
-            {filteredCursos.length > 0 ? (
-              filteredCursos.map((c) => (
-                <div
-                  key={c._key}
-                  className={`p-3 mb-2 rounded-lg cursor-pointer transition duration-200 ${
-                    selectedCurso?._key === c._key
-                      ? "bg-blue-100 border-l-4 border-blue-500"
-                      : "bg-gray-50 hover:bg-gray-100"
-                  }`}
-                  onClick={() => setSelectedCurso(c)}
-                >
-                  <h3 className="text-lg font-medium text-gray-800">{c.titulo}</h3>
-                  <p className="text-sm text-gray-600 truncate">{c.descripcion}</p>
-                </div>
-              ))
-            ) : (
-              <p className="text-gray-600 text-center">No se encontraron cursos.</p>
-            )}
-          </div>
+      <div className="container mx-auto p-8">
+        <h1 className="text-4xl font-extrabold text-gray-900 mb-8 text-center flex items-center justify-center">
+          <FaBookOpen className="inline-block mr-3 text-blue-600" />
+          Explora Nuestros Cursos
+        </h1>
+
+        {/* Barra de Búsqueda (Udemy style) */}
+        <div className="relative mb-8 max-w-xl mx-auto">
+          <input
+            type="text"
+            placeholder="Busca cualquier cosa, desde diseño a desarrollo web..."
+            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-full shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
         </div>
 
-        {/* Área principal para detalles del curso y formulario */}
-        <div className="md:w-2/3 lg:w-3/4 flex-1">
-          <div className="flex justify-between items-center mb-8">
-            <h1 className="text-4xl font-bold text-blue-900">Cursos</h1>
-            <button
-              onClick={() => {
-                setShowForm((v) => !v);
-                if (showForm) {
-                  setEditingKey(null);
-                  setCurso(initialCurso);
-                  setVideoFile(null);
-                  setFormErrors({});
-                }
-              }}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition duration-300"
-            >
-              {showForm ? "Cancelar" : "Agregar Curso"}
-            </button>
+        {/* Botón para instructores */}
+        {currentUserIsInstructor && (
+          <div className="text-center mb-8">
+            <Link href="/dashboard/instructor/crear" className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-full shadow-lg transition-colors duration-300">
+              ¿Eres un instructor? Crea un curso
+            </Link>
           </div>
+        )}
 
-          {mensaje.error && <p className="text-red-500 text-center mt-4">{mensaje.error}</p>}
-          {mensaje.success && <p className="text-green-500 text-center mt-4">{mensaje.success}</p>}
+        <div className="flex flex-col md:flex-row gap-8">
+          {/* Sidebar de Categorías */}
+          {/* El sidebar se muestra siempre aquí, puedes añadir lógica para ocultarlo/mostrarlo si es un requisito */}
+          <CategorySidebar
+            categories={categories}
+            selectedCategory={selectedCategory}
+            onSelectCategory={setSelectedCategory}
+          />
 
-          {showForm && (
-            <div className="bg-white p-8 rounded-xl shadow-lg mb-12 border border-gray-200">
-              <h2 className="text-3xl font-bold mb-6 text-center text-gray-800">
-                {editingKey ? "Editar Curso" : "Agregar Nuevo Curso"}
-              </h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="block mb-2 text-gray-600 font-medium">Título del Curso *</label>
-                  <input
-                    name="titulo"
-                    value={curso.titulo}
-                    onChange={handleChange}
-                    className={`w-full border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      formErrors.titulo ? "border-red-500" : "border-gray-300"
-                    }`}
-                  />
-                  {formErrors.titulo && <p className="text-red-500 text-sm mt-1">{formErrors.titulo}</p>}
-                </div>
-                <div>
-                  <label className="block mb-2 text-gray-600 font-medium">Descripción del Curso *</label>
-                  <textarea
-                    name="descripcion"
-                    value={curso.descripcion}
-                    onChange={handleChange}
-                    className={`w-full border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      formErrors.descripcion ? "border-red-500" : "border-gray-300"
-                    }`}
-                    rows={4}
-                  />
-                  {formErrors.descripcion && <p className="text-red-500 text-sm mt-1">{formErrors.descripcion}</p>}
-                </div>
-                <div>
-                  <label className="block mb-2 text-gray-600 font-medium">Video del Curso (opcional)</label>
-                  <input
-                    type="file"
-                    accept="video/*"
-                    onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
-                    className="mt-1 w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  {curso.videoUrl && !videoFile && (
-                    <video
-                      src={curso.videoUrl}
-                      controls
-                      className="mt-4 w-full max-w-md mx-auto rounded-lg shadow-md"
-                    />
-                  )}
-                </div>
-                <button
-                  onClick={submitCurso}
-                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition duration-300 w-full mt-4 flex items-center justify-center"
-                >
-                  {editingKey ? "Actualizar Curso" : "Crear Curso"}
-                  <svg className="w-4 h-4 ml-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                </button>
+          {/* Contenido Principal: Lista de Cursos */}
+          <div className="flex-grow">
+            {filteredCursos.length === 0 ? (
+              <div className="text-center py-12 bg-gray-50 rounded-lg shadow-inner">
+                <p className="text-2xl font-semibold text-gray-600 mb-4">
+                  ¡No hay cursos que coincidan con tu búsqueda o categoría!
+                </p>
+                <p className="text-lg text-gray-500">Intenta con otros términos o filtros.</p>
               </div>
-            </div>
-          )}
-
-          {/* Detalles del curso seleccionado */}
-          {!showForm && selectedCurso && (
-            <div className="bg-white p-8 rounded-lg shadow-lg border border-gray-200">
-              <h2 className="text-3xl font-bold text-gray-800 mb-4">{selectedCurso.titulo}</h2>
-              {selectedCurso.videoUrl && (
-                <video
-                  src={selectedCurso.videoUrl}
-                  controls
-                  className="w-full h-64 object-cover rounded-lg mb-4"
-                />
-              )}
-              <p className="text-gray-600 mb-4">{selectedCurso.descripcion}</p>
-              <div className="flex space-x-4">
-                <button
-                  onClick={() => editCurso(selectedCurso)}
-                  className="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600 transition duration-300"
-                >
-                  Editar
-                </button>
-                <button
-                  onClick={() => deleteCurso(selectedCurso._key)}
-                  className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition duration-300"
-                >
-                  Eliminar
-                </button>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredCursos.map((curso) => (
+                  <CourseCard key={curso.id} curso={curso} />
+                ))}
               </div>
-            </div>
-          )}
-
-          {!showForm && !selectedCurso && (
-            <p className="text-gray-600 text-center">Selecciona un curso del catálogo para ver sus detalles.</p>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </PrivateLayout>
   );
 };
 
-export default Cursos;
+export default CursosPage;
