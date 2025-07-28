@@ -48,3 +48,4 @@ next-env.d.ts
 .temp/            # Otro posible directorio temporal
 
 tmp
+tmp/

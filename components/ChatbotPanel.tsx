@@ -126,4 +126,5 @@ const ChatbotPanel: React.FC = () => {
   );
 };
 
+
 export default ChatbotPanel;
