@@ -40,3 +40,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# --- Archivos y directorios temporales ---
+/tmp/             # Directorio temporal genérico
+*.tmp             # Archivos con extensión .tmp
+*.log             # Archivos de log (si no están ya cubiertos por debug)
+.temp/            # Otro posible directorio temporal
