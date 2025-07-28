@@ -49,3 +49,6 @@ next-env.d.ts
 
 tmp
 tmp/
+
+/tmp
+bfg-1.14.0.jar
