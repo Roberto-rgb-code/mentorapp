@@ -13,7 +13,7 @@ import Particles from 'react-tsparticles';
 import { loadSlim } from 'tsparticles-slim';
 
 // Importaciones de todos los presets que vamos a usar
-import { loadConfettiPreset } from 'tsparticles-preset-confetti'; // <- Se mantiene la importación por si se usa en otro lugar, pero la sección se elimina
+import { loadConfettiPreset } from 'tsparticles-preset-confetti';
 import { loadFireworksPreset } from 'tsparticles-preset-fireworks';
 import { loadBubblesPreset } from 'tsparticles-preset-bubbles';
 import { loadStarsPreset } from 'tsparticles-preset-stars';
@@ -28,7 +28,6 @@ import dynamic from 'next/dynamic';
 const ClientSideParticlesBackground = ({ options, id }: { options: any; id: string }) => {
   const particlesInit = useCallback(async (engine: any) => {
     await loadSlim(engine);
-    // Se mantiene la carga de presets, incluso si una sección no los usa actualmente
     if (id.includes("confetti")) await loadConfettiPreset(engine);
     else if (id.includes("fireworks")) await loadFireworksPreset(engine);
     else if (id.includes("bubbles")) await loadBubblesPreset(engine);
@@ -66,26 +65,23 @@ const ClientSideParticlesBackground = ({ options, id }: { options: any; id: stri
 // DEFINICIONES DE OPCIONES DE PARTÍCULAS (CON MEJORAS EN COLORES Y ANIMACIONES)
 // ======================================================================================
 
-const BLUE_DARK = "#0A1F40"; // Azul oscuro profundo
-const BLUE_MEDIUM = "#1E40AF"; // Azul medio
-const BLUE_LIGHT = "#ADD8E6"; // Azul claro (Light Blue)
-const BLUE_ACCENT = "#4682B4"; // Azul acero (Steel Blue)
-const BLUE_VERY_LIGHT = "#E0F2F7"; // Azul muy claro, casi blanco
-// const GRAY_DARK_TEXT = "#333"; // No usada en esta versión
-// const GRAY_MEDIUM_TEXT = "#666"; // No usada en esta versión
-// const BLUE_TEXT_DARK = "#0A1F40"; // No usada en esta versión
+const BLUE_DARK = "#0A1F40";
+const BLUE_MEDIUM = "#1E40AF";
+const BLUE_LIGHT = "#ADD8E6";
+const BLUE_ACCENT = "#4682B4";
+const BLUE_VERY_LIGHT = "#E0F2F7";
 
 // 1. Estilo "Awesome Network" (Hero Section)
 const getNetworkParticlesOptions = () => ({
   fullScreen: { enable: false },
-  background: { color: { value: BLUE_DARK } }, // Fondo oscuro
+  background: { color: { value: BLUE_DARK } },
   fpsLimit: 120,
   interactivity: {
     events: { onClick: { enable: true, mode: "push" }, onHover: { enable: true, mode: "grab", parallax: { enable: true, force: 60, smooth: 10 } }, resize: true },
     modes: { grab: { distance: 200, links: { opacity: 1 } }, push: { quantity: 4 }, repulse: { distance: 100, duration: 0.4 } },
   },
   particles: {
-    color: { value: BLUE_LIGHT }, // Partículas azul claro
+    color: { value: BLUE_LIGHT },
     links: { color: BLUE_ACCENT, distance: 150, enable: true, opacity: 0.6, width: 1, triangles: { enable: true, color: { value: BLUE_MEDIUM }, opacity: 0.05 } },
     collisions: { enable: true },
     move: { direction: "none", enable: true, outModes: { default: "bounce" }, random: true, speed: 1, straight: false },
@@ -101,11 +97,11 @@ const getNetworkParticlesOptions = () => ({
 const getBubblesParticlesOptions = () => ({
   preset: "bubbles",
   fullScreen: { enable: false },
-  background: { color: { value: BLUE_VERY_LIGHT } }, // Fondo muy claro
+  background: { color: { value: BLUE_VERY_LIGHT } },
   particles: {
-    color: { value: BLUE_MEDIUM }, // Burbujas en azul medio
+    color: { value: BLUE_MEDIUM },
     size: { value: { min: 10, max: 30 }, random: true, anim: { enable: true, speed: 2, size_min: 0.1, sync: false } },
-    move: { enable: true, speed: 0.3, direction: "top", random: false, straight: true, out_mode: "out" }, // Movimiento constante hacia arriba
+    move: { enable: true, speed: 0.3, direction: "top", random: false, straight: true, out_mode: "out" },
     opacity: { value: { min: 0.3, max: 0.7 }, anim: { enable: true, speed: 0.5, opacity_min: 0.1, sync: false } },
     links: { enable: false },
   },
@@ -119,12 +115,12 @@ const getBubblesParticlesOptions = () => ({
 const getStarsParticlesOptions = () => ({
   preset: "stars",
   fullScreen: { enable: false },
-  background: { color: { value: BLUE_DARK } }, // Fondo oscuro
+  background: { color: { value: BLUE_DARK } },
   particles: {
-    color: { value: BLUE_LIGHT }, // Estrellas azul claro
+    color: { value: BLUE_LIGHT },
     size: { value: { min: 1, max: 3 }, random: true, anim: { enable: true, speed: 5, size_min: 0.1, sync: false } },
     opacity: { value: { min: 0.7, max: 1 }, anim: { enable: true, speed: 1, opacity_min: 0.5, sync: false } },
-    move: { enable: true, speed: 0.2, direction: "none", random: true, straight: false, out_mode: "out" }, // Movimiento muy lento y sutil
+    move: { enable: true, speed: 0.2, direction: "none", random: true, straight: false, out_mode: "out" },
   },
   interactivity: { events: { onHover: { enable: true, mode: "grab" }, onClick: { enable: true, mode: "push" } } },
 });
@@ -133,15 +129,15 @@ const getStarsParticlesOptions = () => ({
 const getFireworksParticlesOptions = () => ({
   preset: "fireworks",
   fullScreen: { enable: false, zIndex: -1 },
-  background: { color: { value: BLUE_DARK } }, // Fondo muy oscuro
+  background: { color: { value: BLUE_DARK } },
   particles: {
     number: { value: 0 },
-    color: { value: [BLUE_LIGHT, BLUE_ACCENT, "#64B5F6"] }, // Explosiones en tonos de azul
+    color: { value: [BLUE_LIGHT, BLUE_ACCENT, "#64B5F6"] },
     shape: { type: "circle" },
     opacity: { value: 1, anim: { enable: true, speed: 0.2, opacity_min: 0.1, sync: false } },
     size: { value: 5, random: true, anim: { enable: true, speed: 2, size_min: 0.5, sync: false } },
     links: { enable: false },
-    move: { enable: true, speed: 1, random: true, out_mode: "destroy" }, // Velocidad ligeramente mayor
+    move: { enable: true, speed: 1, random: true, out_mode: "destroy" },
   },
   interactivity: { events: { onClick: { enable: true, mode: "explode" } } },
 });
@@ -150,12 +146,12 @@ const getFireworksParticlesOptions = () => ({
 const getLinksParticlesOptions = () => ({
   preset: "links",
   fullScreen: { enable: false },
-  background: { color: { value: BLUE_VERY_LIGHT } }, // Fondo blanco azulado muy suave
+  background: { color: { value: BLUE_VERY_LIGHT } },
   particles: {
-    color: { value: BLUE_MEDIUM }, // Nodos en azul medio
-    links: { color: BLUE_LIGHT, distance: 150, enable: true, opacity: 0.5, width: 1 }, // Enlaces en azul claro
+    color: { value: BLUE_MEDIUM },
+    links: { color: BLUE_LIGHT, distance: 150, enable: true, opacity: 0.5, width: 1 },
     number: { density: { enable: true, area: 800 }, value: 40 },
-    move: { enable: true, speed: 0.3, direction: "none", random: true, straight: false, out_mode: "out" }, // Movimiento más lento y aleatorio
+    move: { enable: true, speed: 0.3, direction: "none", random: true, straight: false, out_mode: "out" },
     opacity: { value: 0.6 },
     size: { value: { min: 1, max: 3 } },
   },
@@ -166,12 +162,12 @@ const getLinksParticlesOptions = () => ({
 const getSnowParticlesOptions = () => ({
   preset: "snow",
   fullScreen: { enable: false },
-  background: { color: { value: BLUE_MEDIUM } }, // Azul medio para el fondo
+  background: { color: { value: BLUE_MEDIUM } },
   particles: {
-    color: { value: BLUE_VERY_LIGHT }, // Copos en azul muy claro
+    color: { value: BLUE_VERY_LIGHT },
     shape: { type: "circle" },
     size: { value: { min: 2, max: 6 }, random: true },
-    move: { enable: true, speed: 0.5, direction: "down", random: true, straight: false, out_mode: "out", bounce: false }, // Velocidad más lenta
+    move: { enable: true, speed: 0.5, direction: "down", random: true, straight: false, out_mode: "out", bounce: false },
     opacity: { value: { min: 0.6, max: 1 }, random: true },
     links: { enable: false },
   },
@@ -185,7 +181,6 @@ const getSnowParticlesOptions = () => ({
 
 const DynamicNetworkParticles = dynamic(() => Promise.resolve(() => <ClientSideParticlesBackground id="network-particles" options={getNetworkParticlesOptions()} />), { ssr: false });
 const DynamicBubblesParticles = dynamic(() => Promise.resolve(() => <ClientSideParticlesBackground id="bubbles-particles" options={getBubblesParticlesOptions()} />), { ssr: false });
-// const DynamicConfettiParticles = dynamic(() => Promise.resolve(() => <ClientSideParticlesBackground id="confetti-particles" options={getConfettiParticlesOptions()} />), { ssr: false }); // Eliminado
 const DynamicStarsParticles = dynamic(() => Promise.resolve(() => <ClientSideParticlesBackground id="stars-particles" options={getStarsParticlesOptions()} />), { ssr: false });
 const DynamicFireworksParticles = dynamic(() => Promise.resolve(() => <ClientSideParticlesBackground id="fireworks-particles" options={getFireworksParticlesOptions()} />), { ssr: false });
 const DynamicLinksParticles = dynamic(() => Promise.resolve(() => <ClientSideParticlesBackground id="links-particles" options={getLinksParticlesOptions()} />), { ssr: false });

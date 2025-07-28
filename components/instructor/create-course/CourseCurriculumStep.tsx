@@ -1,7 +1,8 @@
 // components/instructor/create-course/CourseCurriculumStep.tsx
-import React, { useState, useRef } from 'react';
-import { Curso, Seccion, Leccion } from '../../../types/Curso';
-import { FaPlus, FaTrash, FaEdit, FaCheck, FaTimes, FaVideo, FaFilePdf, FaImage, FaFile, FaSpinner, FaUpload } from 'react-icons/fa';
+import React, { useState, useRef, useEffect } from 'react';
+import { Curso, Seccion, Leccion, RecursoDescargable } from '@/types/Curso';
+import { FaPlus, FaTrash, FaChevronDown, FaChevronUp, FaVideo, FaFileAlt, FaUpload, FaSpinner } from 'react-icons/fa';
+import { v4 as uuidv4 } from 'uuid';
 import { toast } from 'react-toastify';
 
 interface CourseCurriculumStepProps {
@@ -10,535 +11,626 @@ interface CourseCurriculumStepProps {
 }
 
 const CourseCurriculumStep: React.FC<CourseCurriculumStepProps> = ({ courseData, handleChange }) => {
-  const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
-  const [editingLeccionId, setEditingLeccionId] = useState<string | null>(null);
-  const [newSectionTitle, setNewSectionTitle] = useState('');
-  const [newLeccionTitle, setNewLeccionTitle] = useState('');
-  const [newLeccionTipo, setNewLeccionTipo] = useState<Leccion['tipo']>('video');
-  const [newLeccionContenidoUrl, setNewLeccionContenidoUrl] = useState('');
-  const [newLeccionDuracion, setNewLeccionDuracion] = useState(0);
-  const [isUploading, setIsUploading] = useState<string | null>(null); // Track which upload is active
+  // =========================================================================
+  // *** ESTE ES EL LOG DE DEPURACIÓN CRÍTICO ***
+  // Debería aparecer SIEMPRE que el componente se renderice, incluso si courseData es undefined.
+  console.log("DEBUG: CourseCurriculumStep - courseData at component start:", courseData);
+  // =========================================================================
 
-  const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
+  // =========================================================================
+  // *** ESTA ES LA COMPROBACIÓN CRÍTICA Y ESENCIAL ***
+  // Si courseData es null o undefined al momento de renderizar, muestra un estado de carga.
+  // Esto PREVIENE el TypeError.
+  if (!courseData) {
+    console.warn("CourseCurriculumStep: courseData prop is null or undefined. Showing loading state.");
+    return (
+      <div className="flex justify-center items-center h-64 bg-gray-50 rounded-lg shadow-inner">
+        <FaSpinner className="animate-spin text-5xl text-blue-500" />
+        <p className="ml-4 text-xl text-gray-700">Cargando estructura del curso...</p>
+      </div>
+    );
+  }
+  // =========================================================================
 
+  // Ahora es seguro acceder a courseData.secciones porque hemos manejado el caso undefined/null
+  const sections = courseData.secciones || [];
 
-  const generateUniqueId = () => Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+  const [openLessons, setOpenLessons] = useState<Record<string, boolean>>({});
+
+  const [uploadingVideoId, setUploadingVideoId] = useState<string | null>(null);
+  const [uploadingResourceId, setUploadingResourceId] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<{ percentage: number; uploadedMb: number; totalMb: number } | null>(null);
+  const [currentFileTotalSize, setCurrentFileTotalSize] = useState<number>(0);
+
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const resourceInputRef = useRef<HTMLInputElement>(null);
+  const [currentUploadTarget, setCurrentUploadTarget] = useState<{ sectionId: string; lessonId: string; resourceId?: string } | null>(null);
+
+  // Efecto para inicializar el estado de secciones y lecciones abiertas
+  useEffect(() => {
+    // Abre todas las secciones por defecto al cargar el curso
+    const initialOpenSections: Record<string, boolean> = {};
+    sections.forEach(sec => {
+      initialOpenSections[sec.id] = true;
+    });
+    setOpenSections(initialOpenSections);
+
+    // Abre todas las lecciones por defecto al cargar el curso
+    const initialOpenLessons: Record<string, boolean> = {};
+    sections.forEach(sec => {
+      sec.lecciones?.forEach(lec => {
+        initialOpenLessons[lec.id] = true;
+      });
+    });
+    setOpenLessons(initialOpenLessons);
+  }, [courseData]); // Re-ejecuta si courseData cambia
+
+  const toggleSection = (section: Seccion) => {
+    setOpenSections(prev => ({
+      ...prev,
+      [section.id]: !prev[section.id],
+    }));
+  };
+
+  const toggleLesson = (lesson: Leccion) => {
+    setOpenLessons(prev => ({
+      ...prev,
+      [lesson.id]: !prev[lesson.id],
+    }));
+  };
 
   const handleAddSection = () => {
-    if (newSectionTitle.trim() === '') {
-      toast.error('El título de la sección no puede estar vacío.');
-      return;
-    }
     const newSection: Seccion = {
-      id: generateUniqueId(),
-      titulo: newSectionTitle,
-      orden: courseData.secciones?.length || 0,
+      id: uuidv4(),
+      titulo: '',
       lecciones: [],
     };
-    handleChange('secciones', [...(courseData.secciones || []), newSection]);
-    setNewSectionTitle('');
-    toast.success('Sección añadida.');
-  };
-
-  const handleDeleteSection = (sectionId: string) => {
-    const updatedSections = courseData.secciones?.filter(s => s.id !== sectionId)
-      .map((s, index) => ({ ...s, orden: index })) || [];
+    const updatedSections = [...sections, newSection];
     handleChange('secciones', updatedSections);
-    toast.info('Sección eliminada.');
+    setOpenSections(prev => ({ ...prev, [newSection.id]: true }));
   };
 
-  const handleEditSection = (sectionId: string, currentTitle: string) => {
-    setEditingSectionId(sectionId);
-    setNewSectionTitle(currentTitle);
-  };
-
-  const handleSaveSectionEdit = (sectionId: string) => {
-    if (newSectionTitle.trim() === '') {
-      toast.error('El título de la sección no puede estar vacío.');
-      return;
-    }
-    const updatedSections = courseData.secciones?.map(s =>
-      s.id === sectionId ? { ...s, titulo: newSectionTitle } : s
-    ) || [];
+  const handleRemoveSection = (sectionId: string) => {
+    const updatedSections = sections.filter(sec => sec.id !== sectionId);
     handleChange('secciones', updatedSections);
-    setEditingSectionId(null);
-    setNewSectionTitle('');
-    toast.success('Título de sección actualizado.');
+    setOpenSections(prev => {
+      const newOpen = { ...prev };
+      delete newOpen[sectionId];
+      return newOpen;
+    });
   };
 
-  const handleCancelSectionEdit = () => {
-    setEditingSectionId(null);
-    setNewSectionTitle('');
+  const handleSectionChange = (sectionId: string, field: keyof Seccion, value: any) => {
+    const updatedSections = sections.map(sec =>
+      sec.id === sectionId ? { ...sec, [field]: value } : sec
+    );
+    handleChange('secciones', updatedSections);
   };
 
-  const handleAddLeccion = (sectionId: string) => {
-    if (newLeccionTitle.trim() === '' || !newLeccionTipo || newLeccionDuracion < 0) {
-      toast.error('Por favor, completa el título, tipo y duración de la lección.');
-      return;
-    }
-
-    const newLeccion: Leccion = {
-      id: generateUniqueId(),
-      titulo: newLeccionTitle,
-      orden: 0, // Se ajustará al añadir a la sección
-      tipo: newLeccionTipo,
-      contenidoUrl: newLeccionContenidoUrl,
-      duracion: newLeccionDuracion,
+  const handleAddLesson = (sectionId: string) => {
+    const newLesson: Leccion = {
+      id: uuidv4(),
+      titulo: '',
+      tipo: 'video',
+      contenidoUrl: '',
+      duracionMinutos: 0,
       recursosDescargables: [],
     };
-
-    const updatedSections = courseData.secciones?.map(s => {
-      if (s.id === sectionId) {
-        const updatedLecciones = [...(s.lecciones || []), newLeccion];
-        // Reordenar las lecciones dentro de la sección
-        updatedLecciones.forEach((lec, idx) => lec.orden = idx);
-        return { ...s, lecciones: updatedLecciones };
-      }
-      return s;
-    }) || [];
-
+    const updatedSections = sections.map(sec =>
+      sec.id === sectionId
+        ? { ...sec, lecciones: [...(sec.lecciones || []), newLesson] }
+        : sec
+    );
     handleChange('secciones', updatedSections);
-    // Reiniciar los campos de nueva lección
-    setNewLeccionTitle('');
-    setNewLeccionTipo('video');
-    setNewLeccionContenidoUrl('');
-    setNewLeccionDuracion(0);
-    toast.success('Lección añadida.');
+    setOpenLessons(prev => ({ ...prev, [newLesson.id]: true }));
   };
 
-  const handleDeleteLeccion = (sectionId: string, leccionId: string) => {
-    const updatedSections = courseData.secciones?.map(s => {
-      if (s.id === sectionId) {
-        const updatedLecciones = s.lecciones?.filter(l => l.id !== leccionId)
-          .map((l, index) => ({ ...l, orden: index })) || [];
-        return { ...s, lecciones: updatedLecciones };
-      }
-      return s;
-    }) || [];
+  const handleRemoveLesson = (sectionId: string, lessonId: string) => {
+    const updatedSections = sections.map(sec =>
+      sec.id === sectionId
+        ? { ...sec, lecciones: (sec.lecciones || []).filter(lec => lec.id !== lessonId) }
+        : sec
+    );
     handleChange('secciones', updatedSections);
-    toast.info('Lección eliminada.');
+    setOpenLessons(prev => {
+      const newOpen = { ...prev };
+      delete newOpen[lessonId];
+      return newOpen;
+    });
   };
 
-  const handleEditLeccion = (sectionId: string, leccion: Leccion) => {
-    setEditingSectionId(sectionId); // Usar sectionId para saber en qué sección se edita la lección
-    setEditingLeccionId(leccion.id);
-    // Cargar los datos de la lección a editar en los estados temporales
-    setNewLeccionTitle(leccion.titulo);
-    setNewLeccionTipo(leccion.tipo);
-    setNewLeccionContenidoUrl(leccion.contenidoUrl || '');
-    setNewLeccionDuracion(leccion.duracion || 0);
-  };
-
-  const handleSaveLeccionEdit = (sectionId: string, leccionId: string) => {
-    if (newLeccionTitle.trim() === '' || !newLeccionTipo || newLeccionDuracion < 0) {
-      toast.error('Por favor, completa todos los campos de la lección.');
-      return;
-    }
-
-    const updatedSections = courseData.secciones?.map(s => {
-      if (s.id === sectionId) {
-        const updatedLecciones = s.lecciones?.map(l =>
-          l.id === leccionId ? {
-            ...l,
-            titulo: newLeccionTitle,
-            tipo: newLeccionTipo,
-            contenidoUrl: newLeccionContenidoUrl,
-            duracion: newLeccionDuracion,
-          } : l
-        ) || [];
-        return { ...s, lecciones: updatedLecciones };
-      }
-      return s;
-    }) || [];
-
+  const handleLessonChange = (sectionId: string, lessonId: string, field: keyof Leccion, value: any) => {
+    const updatedSections = sections.map(sec =>
+      sec.id === sectionId
+        ? {
+            ...sec,
+            lecciones: (sec.lecciones || []).map(lec =>
+              lec.id === lessonId ? { ...lec, [field]: value } : lec
+            ),
+          }
+        : sec
+    );
     handleChange('secciones', updatedSections);
-    // Resetear los estados de edición
-    setEditingLeccionId(null);
-    setEditingSectionId(null);
-    setNewLeccionTitle('');
-    setNewLeccionTipo('video');
-    setNewLeccionContenidoUrl('');
-    setNewLeccionDuracion(0);
-    toast.success('Lección actualizada.');
   };
 
-  const handleCancelLeccionEdit = () => {
-    setEditingLeccionId(null);
-    setEditingSectionId(null);
-    setNewLeccionTitle('');
-    setNewLeccionTipo('video');
-    setNewLeccionContenidoUrl('');
-    setNewLeccionDuracion(0);
+  const handleAddResource = (sectionId: string, lessonId: string) => {
+    const newResource: RecursoDescargable = {
+      id: uuidv4(),
+      nombre: '',
+      url: '',
+    };
+    const updatedSections = sections.map(sec =>
+      sec.id === sectionId
+        ? {
+            ...sec,
+            lecciones: (sec.lecciones || []).map(lec =>
+              lec.id === lessonId
+                ? { ...lec, recursosDescargables: [...(lec.recursosDescargables || []), newResource] }
+                : lec
+            ),
+          }
+        : sec
+    );
+    handleChange('secciones', updatedSections);
   };
 
-  const handleLeccionFileUpload = async (sectionId: string, leccionId: string, file: File | null, field: 'contenidoUrl' | 'recursosDescargables') => {
-    if (!file) {
-      toast.error('No se seleccionó ningún archivo.');
-      return;
-    }
+  const handleRemoveResource = (sectionId: string, lessonId: string, resourceId: string) => {
+    const updatedSections = sections.map(sec =>
+      sec.id === sectionId
+        ? {
+            ...sec,
+            lecciones: (sec.lecciones || []).map(lec =>
+              lec.id === lessonId
+                ? { ...lec, recursosDescargables: (lec.recursosDescargables || []).filter(res => res.id !== resourceId) }
+                : lec
+            ),
+          }
+        : sec
+    );
+    handleChange('secciones', updatedSections);
+  };
 
-    // Usar el ID de la lección para identificar qué input de carga está activo
-    const uploadKey = `${sectionId}-${leccionId}-${field}`;
-    setIsUploading(uploadKey);
+  const handleResourceChange = (sectionId: string, lessonId: string, resourceId: string, field: keyof RecursoDescargable, value: any) => {
+    const updatedSections = sections.map(sec =>
+      sec.id === sectionId
+        ? {
+            ...sec,
+            lecciones: (sec.lecciones || []).map(lec =>
+              lec.id === lessonId
+                ? {
+                    ...lec,
+                    recursosDescargables: (lec.recursosDescargables || []).map(res =>
+                      res.id === resourceId ? { ...res, [field]: value } : res
+                    ),
+                  }
+                : lec
+            ),
+          }
+        : sec
+    );
+    handleChange('secciones', updatedSections);
+  };
 
-    const formData = new FormData();
-    formData.append('file', file);
+  // --- Lógica de Subida de Archivos a S3 (¡AHORA DIRECTA Y CON PROGRESO!) ---
+
+  const handleFileUpload = async (file: File, type: 'video' | 'resource', sectionId: string, lessonId: string, resourceId?: string) => {
+    if (!file) return;
+
+    setCurrentFileTotalSize(file.size); // Guarda el tamaño total del archivo
+    setUploadProgress({ percentage: 0, uploadedMb: 0, totalMb: file.size / (1024 * 1024) }); // Inicializa el progreso
 
     try {
-      const response = await fetch('/api/upload', {
+      if (type === 'video') {
+        setUploadingVideoId(lessonId);
+      } else {
+        setUploadingResourceId(resourceId || null);
+      }
+
+      // 1. Obtener la URL pre-firmada de tu backend
+      const getPresignedUrlResponse = await fetch('/api/generate-presigned-url', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileType: file.type,
+        }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error al subir el archivo.');
+      if (!getPresignedUrlResponse.ok) {
+        const errorData = await getPresignedUrlResponse.json();
+        throw new Error(errorData.message || 'Error al obtener la URL pre-firmada.');
       }
 
-      const result = await response.json();
-      toast.success('Archivo de lección subido exitosamente.');
+      const { presignedUrl, publicFileUrl } = await getPresignedUrlResponse.json();
 
-      const updatedSections = courseData.secciones?.map(s => {
-        if (s.id === sectionId) {
-          const updatedLecciones = s.lecciones?.map(l => {
-            if (l.id === leccionId) {
-              if (field === 'contenidoUrl') {
-                return { ...l, contenidoUrl: result.url };
-              } else if (field === 'recursosDescargables') {
-                const newResource = { nombre: file.name, url: result.url };
-                return { ...l, recursosDescargables: [...(l.recursosDescargables || []), newResource] };
-              }
-            }
-            return l;
-          }) || [];
-          return { ...s, lecciones: updatedLecciones };
+      // 2. Subir el archivo directamente a S3 usando la URL pre-firmada con XMLHttpRequest para progreso
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', presignedUrl);
+      xhr.setRequestHeader('Content-Type', file.type); // Es crucial enviar el Content-Type correcto
+
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percentage = (event.loaded / event.total) * 100;
+          const uploadedMb = event.loaded / (1024 * 1024);
+          const totalMb = event.total / (1024 * 1024);
+          setUploadProgress({ percentage: parseFloat(percentage.toFixed(2)), uploadedMb: parseFloat(uploadedMb.toFixed(2)), totalMb: parseFloat(totalMb.toFixed(2)) });
         }
-        return s;
-      }) || [];
+      };
 
-      handleChange('secciones', updatedSections);
-      // Si estamos en modo "añadir nueva lección" (leccionId === 'new'), actualizamos el campo de URL temporal
-      if (leccionId === 'new' && field === 'contenidoUrl') {
-        setNewLeccionContenidoUrl(result.url);
-      } else if (editingLeccionId === leccionId && field === 'contenidoUrl') {
-        // Si estamos editando una lección, también actualizamos el campo temporal para que se refleje
-        setNewLeccionContenidoUrl(result.url);
+      const uploadPromise = new Promise<void>((resolve, reject) => {
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+          } else {
+            reject(new Error(`Error al subir el archivo a S3. Estado: ${xhr.status}`));
+          }
+        };
+        xhr.onerror = () => reject(new Error('Error de red al subir el archivo.'));
+        xhr.onabort = () => reject(new Error('Subida cancelada.'));
+      });
+
+      xhr.send(file); // Envía el objeto File directamente
+      await uploadPromise; // Espera a que la subida se complete
+
+      // El archivo se subió con éxito, ahora actualiza el estado del curso con la URL pública
+      if (type === 'video') {
+        handleLessonChange(sectionId, lessonId, 'contenidoUrl', publicFileUrl);
+        toast.success('Video subido exitosamente!');
+      } else {
+        const updatedSections = sections.map(sec =>
+          sec.id === sectionId
+            ? {
+                ...sec,
+                lecciones: (sec.lecciones || []).map(lec =>
+                  lec.id === lessonId
+                    ? {
+                        ...lec,
+                        recursosDescargables: (lec.recursosDescargables || []).map(res =>
+                          res.id === resourceId ? { ...res, url: publicFileUrl } : res
+                        ),
+                      }
+                    : lec
+                ),
+              }
+            : sec
+        );
+        handleChange('secciones', updatedSections);
+        toast.success('Recurso subido exitosamente!');
       }
-
-
     } catch (error: any) {
-      console.error('Error al subir archivo de lección:', error);
-      toast.error(error.message || `Error al subir el archivo para la lección.`);
+      console.error('Error durante la subida:', error);
+      toast.error(error.message || 'Error al subir el archivo. Inténtalo de nuevo.');
     } finally {
-      setIsUploading(null);
+      setUploadingVideoId(null);
+      setUploadingResourceId(null);
+      setUploadProgress(null); // Limpia el progreso al finalizar
+      setCurrentFileTotalSize(0); // Limpia el tamaño total
+      if (videoInputRef.current) videoInputRef.current.value = '';
+      if (resourceInputRef.current) resourceInputRef.current.value = '';
     }
   };
 
-  const handleRemoveResource = (sectionId: string, leccionId: string, resourceUrl: string) => {
-    const updatedSections = courseData.secciones?.map(s => {
-      if (s.id === sectionId) {
-        const updatedLecciones = s.lecciones?.map(l => {
-          if (l.id === leccionId) {
-            return {
-              ...l,
-              recursosDescargables: l.recursosDescargables?.filter(res => res.url !== resourceUrl) || [],
-            };
-          }
-          return l;
-        }) || [];
-        return { ...s, lecciones: updatedLecciones };
-      }
-      return s;
-    }) || [];
-    handleChange('secciones', updatedSections);
-    toast.info('Recurso eliminado.');
+  const handleVideoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0] && currentUploadTarget) {
+      handleFileUpload(e.target.files[0], 'video', currentUploadTarget.sectionId, currentUploadTarget.lessonId);
+    }
+  };
+
+  const handleResourceFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0] && currentUploadTarget && currentUploadTarget.resourceId) {
+      handleFileUpload(e.target.files[0], 'resource', currentUploadTarget.sectionId, currentUploadTarget.lessonId, currentUploadTarget.resourceId);
+    }
   };
 
   return (
-    <div className="bg-white p-8 rounded-lg shadow-md">
+    <div className="bg-white p-8 rounded-lg shadow-md mb-8">
       <h2 className="text-3xl font-bold text-gray-800 mb-6">Estructura del Curso</h2>
-      <p className="text-700 mb-6">
-        Organiza tu curso en secciones y añade lecciones. Cada lección debe tener un tipo de contenido y su URL.
+      <p className="text-gray-600 mb-8">
+        Crea y organiza el contenido de tu curso en secciones y lecciones.
       </p>
 
-      {/* Añadir Nueva Sección */}
-      <div className="mb-8 p-6 border border-gray-200 rounded-lg bg-gray-50">
-        <h3 className="text-xl font-semibold text-gray-800 mb-4">Añadir Nueva Sección</h3>
-        <div className="flex space-x-3">
-          <input
-            type="text"
-            value={newSectionTitle}
-            onChange={(e) => setNewSectionTitle(e.target.value)}
-            placeholder="Título de la nueva sección (Ej: Introducción, Fundamentos, Casos de Estudio)"
-            className="flex-grow p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
-          />
-          <button
-            onClick={handleAddSection}
-            className="px-6 py-3 rounded-md font-semibold bg-green-600 hover:bg-green-700 text-white transition-colors flex items-center"
-          >
-            <FaPlus className="mr-2" /> Añadir Sección
-          </button>
-        </div>
-      </div>
+      {/* Input de archivo oculto para videos */}
+      <input
+        type="file"
+        ref={videoInputRef}
+        onChange={handleVideoFileChange}
+        accept="video/*"
+        style={{ display: 'none' }}
+      />
 
-      {/* Lista de Secciones */}
+      {/* Input de archivo oculto para recursos */}
+      <input
+        type="file"
+        ref={resourceInputRef}
+        onChange={handleResourceFileChange}
+        style={{ display: 'none' }}
+      />
+
+      {/* Loader Global para la subida (similar a la captura de pantalla) */}
+      {(uploadingVideoId || uploadingResourceId) && uploadProgress && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-8 rounded-lg shadow-xl text-center">
+            <h3 className="text-xl font-semibold mb-4">Subiendo 1 archivo...</h3>
+            <div className="relative w-64 h-64 mx-auto mb-4 border-2 border-gray-300 rounded-lg flex items-center justify-center overflow-hidden">
+                <FaVideo className="text-gray-400 text-6xl" /> {/* Ícono de video o archivo genérico */}
+                <div
+                    className="absolute bottom-0 left-0 bg-blue-500 transition-all duration-100 ease-linear"
+                    style={{ height: `${uploadProgress.percentage}%`, width: '100%' }}
+                ></div>
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-white font-bold text-lg">
+                    <span>{uploadProgress.percentage.toFixed(0)}%</span>
+                </div>
+            </div>
+            <p className="text-gray-700 mb-2">
+              {uploadProgress.uploadedMb.toFixed(2)} MB de {uploadProgress.totalMb.toFixed(2)} MB
+            </p>
+            <p className="text-gray-500 text-sm">El tiempo restante puede variar.</p>
+            {/* Puedes añadir un botón para cancelar si lo deseas */}
+            {/* <button
+              onClick={() => {
+                // Lógica para cancelar la subida (abortar el XHR)
+                toast.info('Subida cancelada.');
+                setUploadingVideoId(null);
+                setUploadingResourceId(null);
+                setUploadProgress(null);
+                setCurrentFileTotalSize(0);
+              }}
+              className="mt-4 px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
+            >
+              Cancelar
+            </button> */}
+          </div>
+        </div>
+      )}
+
       <div className="space-y-6">
-        {courseData.secciones?.length === 0 && (
-          <p className="text-gray-600 text-center py-4">Aún no hay secciones en tu curso. ¡Añade una para empezar!</p>
-        )}
-        {courseData.secciones?.map(section => (
-          <div key={section.id} className="border border-gray-200 rounded-lg bg-white shadow-sm p-5">
-            {editingSectionId === section.id && editingLeccionId === null ? ( // Condición para editar sección
-              <div className="flex items-center space-x-3 mb-4">
+        {sections.map((section, sectionIndex) => (
+          <div key={section.id} className="border border-gray-200 rounded-lg overflow-hidden">
+            {/* Encabezado de la Sección */}
+            <div
+              className={`flex items-center justify-between p-4 cursor-pointer ${
+                openSections[section.id] ? 'bg-blue-100' : 'bg-gray-50 hover:bg-gray-100'
+              }`}
+              onClick={() => toggleSection(section)}
+            >
+              <div className="flex items-center flex-grow">
+                {openSections[section.id] ? (
+                  <FaChevronUp className="text-blue-600 mr-3" />
+                ) : (
+                  <FaChevronDown className="text-gray-500 mr-3" />
+                )}
                 <input
                   type="text"
-                  value={newSectionTitle} // Usa newSectionTitle para la edición de sección
-                  onChange={(e) => setNewSectionTitle(e.target.value)}
-                  className="flex-grow p-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
+                  placeholder={`Sección ${sectionIndex + 1}: Título de la Sección`}
+                  className="flex-grow p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-lg font-semibold bg-transparent"
+                  value={section.titulo}
+                  onChange={(e) => handleSectionChange(section.id, 'titulo', e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
                 />
-                <button onClick={() => handleSaveSectionEdit(section.id)} className="text-green-600 hover:text-green-800 p-2"><FaCheck /></button>
-                <button onClick={handleCancelSectionEdit} className="text-red-600 hover:text-red-800 p-2"><FaTimes /></button>
-              </div>
-            ) : (
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-semibold text-gray-800">Sección {section.orden + 1}: {section.titulo}</h3>
-                <div className="flex space-x-2">
-                  <button onClick={() => handleEditSection(section.id, section.titulo)} className="text-blue-600 hover:text-blue-800 p-2"><FaEdit /></button>
-                  <button onClick={() => handleDeleteSection(section.id)} className="text-red-600 hover:text-red-800 p-2"><FaTrash /></button>
-                </div>
-              </div>
-            )}
-
-            {/* Añadir Nueva Lección a esta Sección */}
-            {/* Solo muestra el formulario de añadir lección si NO estamos editando una lección existente dentro de esta sección */}
-            {editingLeccionId !== null && editingSectionId === section.id ? null : (
-            <div className="mb-4 p-4 border border-gray-100 rounded-md bg-gray-50">
-              <h4 className="text-lg font-medium text-gray-800 mb-3">Añadir Nueva Lección a "{section.titulo}"</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor={`leccionTitle-new-${section.id}`} className="block text-sm font-medium text-gray-700 mb-1">Título de la Lección</label>
-                  <input
-                    type="text"
-                    id={`leccionTitle-new-${section.id}`}
-                    value={newLeccionTitle} // Siempre usa newLeccionTitle para añadir
-                    onChange={(e) => setNewLeccionTitle(e.target.value)}
-                    placeholder="Ej: Introducción a React Hooks"
-                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
-                  />
-                </div>
-                <div>
-                  <label htmlFor={`leccionType-new-${section.id}`} className="block text-sm font-medium text-gray-700 mb-1">Tipo de Contenido</label>
-                  <select
-                    id={`leccionType-new-${section.id}`}
-                    value={newLeccionTipo} // Siempre usa newLeccionTipo para añadir
-                    onChange={(e) => setNewLeccionTipo(e.target.value as Leccion['tipo'])}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 bg-white"
-                  >
-                    <option value="video">Video</option>
-                    <option value="articulo">Artículo</option>
-                    <option value="quiz">Quiz</option>
-                    <option value="descargable">Descargable</option>
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor={`leccionUrl-new-${section.id}`} className="block text-sm font-medium text-gray-700 mb-1">URL del Contenido</label>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="text"
-                      id={`leccionUrl-new-${section.id}`}
-                      value={newLeccionContenidoUrl} // Siempre usa newLeccionContenidoUrl para añadir
-                      onChange={(e) => setNewLeccionContenidoUrl(e.target.value)}
-                      placeholder="Ej: https://tuvideo.com/leccion1.mp4"
-                      className="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
-                    />
-                    <input
-                      type="file"
-                      ref={el => fileInputRefs.current[`new-leccion-content-${section.id}`] = el}
-                      accept={newLeccionTipo === 'video' ? 'video/*' : newLeccionTipo === 'imagen' ? 'image/*' : newLeccionTipo === 'articulo' ? '.txt,.md,.html' : '*/*'}
-                      onChange={(e) => handleLeccionFileUpload(section.id, 'new', e.target.files ? e.target.files[0] : null, 'contenidoUrl')}
-                      className="hidden"
-                    />
-                    <button
-                      onClick={() => fileInputRefs.current[`new-leccion-content-${section.id}`]?.click()}
-                      disabled={isUploading === `${section.id}-new-contenidoUrl`}
-                      className={`px-4 py-2 rounded-md font-semibold text-white transition-colors flex items-center ${
-                        isUploading === `${section.id}-new-contenidoUrl` ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
-                      }`}
-                    >
-                      {isUploading === `${section.id}-new-contenidoUrl` ? <FaSpinner className="animate-spin" /> : <FaUpload />}
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <label htmlFor={`leccionDuration-new-${section.id}`} className="block text-sm font-medium text-gray-700 mb-1">Duración (minutos)</label>
-                  <input
-                    type="number"
-                    id={`leccionDuration-new-${section.id}`}
-                    value={newLeccionDuracion} // Siempre usa newLeccionDuracion para añadir
-                    onChange={(e) => setNewLeccionDuracion(parseInt(e.target.value) || 0)}
-                    min="0"
-                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
-                  />
-                </div>
               </div>
               <button
-                onClick={() => handleAddLeccion(section.id)}
-                className="mt-4 w-full px-4 py-2 rounded-md font-semibold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors flex items-center justify-center"
+                // Explicitly capture sectionId here
+                onClick={(e) => { e.stopPropagation(); const currentSectionId = section.id; handleRemoveSection(currentSectionId); }}
+                className="ml-4 p-2 text-red-600 hover:bg-red-100 rounded-full transition-colors"
+                title="Eliminar Sección"
               >
-                <FaPlus className="mr-2" /> Añadir Lección
+                <FaTrash />
               </button>
             </div>
-            )}
 
-            {/* Lista de Lecciones */}
-            <ul className="space-y-3">
-              {section.lecciones.length === 0 && (
-                <li className="text-gray-500 text-center py-2">Aún no hay lecciones en esta sección.</li>
-              )}
-              {section.lecciones.map(leccion => (
-                <li key={leccion.id} className="flex flex-col border border-gray-100 rounded-md p-3 bg-white shadow-sm">
-                  {editingLeccionId === leccion.id ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Título</label>
-                        <input
-                          type="text"
-                          value={newLeccionTitle} // Cuando se edita, usa newLeccionTitle que fue cargado en handleEditLeccion
-                          onChange={(e) => setNewLeccionTitle(e.target.value)}
-                          className="w-full p-2 border border-blue-300 rounded-md"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
-                        <select
-                          value={newLeccionTipo} // Cuando se edita, usa newLeccionTipo
-                          onChange={(e) => setNewLeccionTipo(e.target.value as Leccion['tipo'])}
-                          className="w-full p-2 border border-blue-300 rounded-md bg-white"
-                        >
-                          <option value="video">Video</option>
-                          <option value="articulo">Artículo</option>
-                          <option value="quiz">Quiz</option>
-                          <option value="descargable">Descargable</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">URL Contenido</label>
-                        <div className="flex items-center space-x-2">
+            {/* Contenido de la Sección (Lecciones) */}
+            {openSections[section.id] && (
+              <div className="p-4 bg-white border-t border-gray-200">
+                <h4 className="text-xl font-semibold text-gray-700 mb-4">Lecciones de la Sección</h4>
+                <div className="space-y-4 mb-6">
+                  {(section.lecciones || []).map((lesson, lessonIndex) => (
+                    <div key={lesson.id} className="border border-gray-100 rounded-lg shadow-sm overflow-hidden">
+                      {/* Encabezado de la Lección */}
+                      <div
+                        className={`flex items-center justify-between p-3 cursor-pointer ${
+                          openLessons[lesson.id] ? 'bg-gray-100' : 'bg-white hover:bg-gray-50'
+                        }`}
+                        onClick={() => toggleLesson(lesson)}
+                      >
+                        <div className="flex items-center flex-grow">
+                          {openLessons[lesson.id] ? (
+                            <FaChevronUp className="text-gray-600 mr-2 text-sm" />
+                          ) : (
+                            <FaChevronDown className="text-gray-400 mr-2 text-sm" />
+                          )}
+                          <span className="font-medium text-gray-800">Lección {lessonIndex + 1}:</span>
                           <input
                             type="text"
-                            value={newLeccionContenidoUrl} // Cuando se edita, usa newLeccionContenidoUrl
-                            onChange={(e) => setNewLeccionContenidoUrl(e.target.value)}
-                            placeholder="URL del contenido"
-                            className="flex-grow p-2 border border-blue-300 rounded-md"
+                            placeholder="Título de la Lección"
+                            className="ml-2 flex-grow p-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-base bg-transparent"
+                            value={lesson.titulo}
+                            onChange={(e) => handleLessonChange(section.id, lesson.id, 'titulo', e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
                           />
-                          <input
-                            type="file"
-                            ref={el => fileInputRefs.current[`edit-leccion-content-${leccion.id}`] = el}
-                            accept={newLeccionTipo === 'video' ? 'video/*' : newLeccionTipo === 'imagen' ? 'image/*' : newLeccionTipo === 'articulo' ? '.txt,.md,.html' : '*/*'}
-                            onChange={(e) => handleLeccionFileUpload(section.id, leccion.id, e.target.files ? e.target.files[0] : null, 'contenidoUrl')}
-                            className="hidden"
-                          />
-                          <button
-                            onClick={() => fileInputRefs.current[`edit-leccion-content-${leccion.id}`]?.click()}
-                            disabled={isUploading === `${section.id}-${leccion.id}-contenidoUrl`}
-                            className={`px-4 py-2 rounded-md font-semibold text-white transition-colors flex items-center ${
-                              isUploading === `${section.id}-${leccion.id}-contenidoUrl` ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
-                            }`}
-                          >
-                            {isUploading === `${section.id}-${leccion.id}-contenidoUrl` ? <FaSpinner className="animate-spin" /> : <FaUpload />}
-                          </button>
                         </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Duración (min)</label>
-                        <input
-                          type="number"
-                          value={newLeccionDuracion} // Cuando se edita, usa newLeccionDuracion
-                          onChange={(e) => setNewLeccionDuracion(parseInt(e.target.value) || 0)}
-                          min="0"
-                          className="w-full p-2 border border-blue-300 rounded-md"
-                        />
-                      </div>
-                      <div className="col-span-2 flex justify-end space-x-2 mt-2">
-                        <button onClick={() => handleSaveLeccionEdit(section.id, leccion.id)} className="text-green-600 hover:text-green-800 p-2"><FaCheck /></button>
-                        <button onClick={handleCancelLeccionEdit} className="text-red-600 hover:text-red-800 p-2"><FaTimes /></button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium text-gray-700 flex items-center">
-                          {leccion.orden + 1}.{' '}
-                          {leccion.tipo === 'video' && <FaVideo className="mr-1 text-red-500" />}
-                          {leccion.tipo === 'articulo' && <FaFilePdf className="mr-1 text-blue-500" />}
-                          {leccion.tipo === 'quiz' && <FaCheck className="mr-1 text-green-500" />}
-                          {leccion.tipo === 'descargable' && <FaFile className="mr-1 text-purple-500" />}
-                          {leccion.titulo} ({leccion.duracion} min)
-                        </span>
-                        <div className="flex space-x-2">
-                          <button onClick={() => handleEditLeccion(section.id, leccion)} className="text-blue-600 hover:text-blue-800 p-2"><FaEdit /></button>
-                          <button onClick={() => handleDeleteLeccion(section.id, leccion.id)} className="text-red-600 hover:text-red-800 p-2"><FaTrash /></button>
-                        </div>
-                      </div>
-                      {leccion.contenidoUrl && (
-                        <p className="text-sm text-gray-500 ml-6 break-all">URL: <a href={leccion.contenidoUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">{leccion.contenidoUrl}</a></p>
-                      )}
-
-                      {/* Recursos Descargables para la Lección */}
-                      <div className="mt-2 ml-6">
-                        <h5 className="text-sm font-medium text-gray-700 mb-1">Recursos Descargables:</h5>
-                        {leccion.recursosDescargables && leccion.recursosDescargables.length > 0 ? (
-                          <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
-                            {leccion.recursosDescargables.map((resource, resIndex) => (
-                              <li key={resource.url} className="flex justify-between items-center break-all"> {/* Usar resource.url como key es más seguro */}
-                                <a href={resource.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
-                                  {resource.nombre}
-                                </a>
-                                <button
-                                  onClick={() => handleRemoveResource(section.id, leccion.id, resource.url)}
-                                  className="text-red-500 hover:text-red-700 ml-2"
-                                  title="Eliminar recurso"
-                                >
-                                  <FaTrash size={12} />
-                                </button>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="text-sm text-gray-500">Ningún recurso.</p>
-                        )}
-                        <input
-                          type="file"
-                          ref={el => fileInputRefs.current[`resource-${leccion.id}`] = el}
-                          onChange={(e) => handleLeccionFileUpload(section.id, leccion.id, e.target.files ? e.target.files[0] : null, 'recursosDescargables')}
-                          className="hidden"
-                        />
                         <button
-                          onClick={() => fileInputRefs.current[`resource-${leccion.id}`]?.click()}
-                          disabled={isUploading === `${section.id}-${leccion.id}-recursosDescargables`}
-                          className={`mt-2 px-3 py-1 text-xs rounded-md font-semibold text-white transition-colors flex items-center ${
-                            isUploading === `${section.id}-${leccion.id}-recursosDescargables` ? 'bg-gray-400 cursor-not-allowed' : 'bg-gray-600 hover:bg-gray-700'
-                          }`}
+                          // Explicitly capture sectionId and lessonId here
+                          onClick={(e) => { e.stopPropagation(); const currentSectionId = section.id; const currentLessonId = lesson.id; handleRemoveLesson(currentSectionId, currentLessonId); }}
+                          className="ml-4 p-1 text-red-500 hover:bg-red-100 rounded-full transition-colors"
+                          title="Eliminar Lección"
                         >
-                          {isUploading === `${section.id}-${leccion.id}-recursosDescargables` ? <FaSpinner className="animate-spin mr-1" /> : <FaPlus className="mr-1" />}
-                          Añadir Recurso
+                          <FaTrash />
                         </button>
                       </div>
-                    </>
-                  )}
-                </li>
-              ))}
-            </ul>
+
+                      {/* Contenido de la Lección */}
+                      {openLessons[lesson.id] && (
+                        <div className="p-4 bg-white border-t border-gray-100 space-y-4">
+                          {/* Tipo de Contenido (Video, Texto, etc.) */}
+                          <div>
+                            <label htmlFor={`lesson-type-${lesson.id}`} className="block text-sm font-medium text-gray-700 mb-1">
+                              Tipo de Contenido
+                            </label>
+                            <select
+                              id={`lesson-type-${lesson.id}`}
+                              className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                              value={lesson.tipo}
+                              onChange={(e) => handleLessonChange(section.id, lesson.id, 'tipo', e.target.value)}
+                            >
+                              <option value="video">Video</option>
+                              <option value="texto">Texto</option>
+                              <option value="quiz">Cuestionario</option>
+                              <option value="articulo">Artículo</option>
+                            </select>
+                          </div>
+
+                          {/* URL del Contenido (Video) */}
+                          <div>
+                            <label htmlFor={`lesson-content-url-${lesson.id}`} className="block text-sm font-medium text-gray-700 mb-1">
+                              <FaVideo className="inline-block mr-2 text-blue-500" /> URL del Contenido (Video)
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                id={`lesson-content-url-${lesson.id}`}
+                                placeholder="Ej: https://tuserver.com/video_leccion.mp4"
+                                className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                value={lesson.contenidoUrl}
+                                onChange={(e) => handleLessonChange(section.id, lesson.id, 'contenidoUrl', e.target.value)}
+                              />
+                              <button
+                                onClick={() => {
+                                  // Explicitly capture IDs for currentUploadTarget
+                                  const currentSectionId = section.id;
+                                  const currentLessonId = lesson.id;
+                                  setCurrentUploadTarget({ sectionId: currentSectionId, lessonId: currentLessonId });
+                                  videoInputRef.current?.click();
+                                }}
+                                disabled={uploadingVideoId === lesson.id}
+                                className="mt-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center"
+                                title="Subir Video a S3"
+                              >
+                                {uploadingVideoId === lesson.id ? (
+                                  <FaSpinner className="animate-spin mr-2" />
+                                ) : (
+                                  <FaUpload className="mr-2" />
+                                )}
+                                Subir Video
+                              </button>
+                            </div>
+                            {lesson.contenidoUrl && lesson.tipo === 'video' && (
+                              <div className="mt-2 text-sm text-gray-500 truncate">
+                                <span className="font-semibold">URL actual:</span> {lesson.contenidoUrl}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Duración en Minutos */}
+                          <div>
+                            <label htmlFor={`lesson-duration-${lesson.id}`} className="block text-sm font-medium text-gray-700 mb-1">
+                              Duración (minutos)
+                            </label>
+                            <input
+                              type="number"
+                              id={`lesson-duration-${lesson.id}`}
+                              placeholder="Ej: 15"
+                              className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                              value={lesson.duracionMinutos}
+                              onChange={(e) => handleLessonChange(section.id, lesson.id, 'duracionMinutos', parseInt(e.target.value) || 0)}
+                            />
+                          </div>
+
+                          {/* Recursos Descargables */}
+                          <div className="border-t border-gray-200 pt-4 mt-4">
+                            <h5 className="text-md font-medium text-gray-700 mb-3 flex items-center">
+                              <FaFileAlt className="inline-block mr-2 text-green-600" /> Recursos Descargables
+                            </h5>
+                            <p className="text-sm text-gray-500 mb-3">
+                              Añade PDFs, documentos, códigos o cualquier otro archivo para que los estudiantes los descarguen.
+                            </p>
+                            <div className="space-y-3">
+                              {(lesson.recursosDescargables || []).map((resource, resourceIndex) => (
+                                <div key={resource.id} className="flex items-center gap-2">
+                                  <input
+                                    type="text"
+                                    placeholder="Nombre del Recurso (Ej: Presentación PDF)"
+                                    className="flex-grow p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                    value={resource.nombre}
+                                    onChange={(e) => handleResourceChange(section.id, lesson.id, resource.id, 'nombre', e.target.value)}
+                                  />
+                                  <input
+                                    type="text"
+                                    placeholder="URL del Archivo (Ej: https://tuserver.com/recurso.pdf)"
+                                    className="flex-grow p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                    value={resource.url}
+                                    onChange={(e) => handleResourceChange(section.id, lesson.id, resource.id, 'url', e.target.value)}
+                                  />
+                                  <button
+                                    onClick={() => {
+                                      // Explicitly capture IDs for currentUploadTarget
+                                      const currentSectionId = section.id;
+                                      const currentLessonId = lesson.id;
+                                      const currentResourceId = resource.id;
+                                      setCurrentUploadTarget({ sectionId: currentSectionId, lessonId: currentLessonId, resourceId: currentResourceId });
+                                      resourceInputRef.current?.click();
+                                    }}
+                                    disabled={uploadingResourceId === resource.id}
+                                    className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center text-sm"
+                                    title="Subir Archivo a S3"
+                                  >
+                                    {uploadingResourceId === resource.id ? (
+                                      <FaSpinner className="animate-spin" />
+                                    ) : (
+                                      <FaUpload />
+                                    )}
+                                  </button>
+                                  <button
+                                    // Explicitly capture sectionId, lessonId, and resourceId here
+                                    onClick={(e) => { e.stopPropagation(); const currentSectionId = section.id; const currentLessonId = lesson.id; const currentResourceId = resource.id; handleRemoveResource(currentSectionId, currentLessonId, currentResourceId); }}
+                                    className="p-2 text-red-500 hover:bg-red-100 rounded-full transition-colors"
+                                    title="Eliminar Recurso"
+                                  >
+                                    <FaTrash />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                            <button
+                              onClick={() => handleAddResource(section.id, lesson.id)}
+                              className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors flex items-center text-sm"
+                            >
+                              <FaPlus className="mr-2" /> Añadir Recurso
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => handleAddLesson(section.id)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center"
+                >
+                  <FaPlus className="mr-2" /> Añadir Lección
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>
 
-      <div className="mt-8 p-4 bg-purple-50 border border-purple-200 rounded-lg text-purple-800">
-        <h3 className="font-semibold text-lg mb-2">Consejos para la Estructura del Curso</h3>
+      <button
+        onClick={handleAddSection}
+        className="mt-8 px-6 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors flex items-center justify-center w-full md:w-auto"
+      >
+        <FaPlus className="mr-2" /> Añadir Nueva Sección
+      </button>
+
+      <div className="mt-8 p-4 bg-blue-50 border border-blue-200 text-blue-800 rounded-lg">
+        <h3 className="font-bold text-lg mb-2">Consejos para la Estructura del Curso</h3>
         <ul className="list-disc list-inside text-sm space-y-1">
-          <li>Divide tu curso en secciones lógicas y fáciles de seguir.</li>
-          <li>Cada lección debe enfocarse en un tema específico.</li>
-          <li>Asegúrate de que tus videos y materiales estén bien producidos y sean de alta calidad.</li>
+          <li>Organiza tu contenido en secciones lógicas para facilitar el aprendizaje.</li>
+          <li>Cada lección debe tener un título claro y un tipo de contenido definido.</li>
+          <li>Asegúrate de que tus videos y recursos estén alojados en un servicio de almacenamiento en la nube (como AWS S3) y utiliza sus URLs.</li>
+          <li>Puedes añadir múltiples recursos descargables por lección.</li>
         </ul>
       </div>
     </div>

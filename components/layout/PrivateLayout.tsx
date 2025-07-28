@@ -1,34 +1,27 @@
 // components/layout/PrivateLayout.tsx
-import Navbar from '../Navbar';
-import { useAuth } from '../../hooks/useAuth';
-import { useRouter } from 'next/router';
-import { useEffect } from 'react';
+import React from 'react';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import Navbar from '../Navbar'; // Importa tu componente Navbar principal
 
-const PrivateLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, loading } = useAuth();
-  const router = useRouter();
+interface PrivateLayoutProps {
+  children: React.ReactNode;
+}
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
-    }
-  }, [loading, user, router]);
-
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Cargando...</div>;
-  }
-
-  if (!user) {
-    return null;
-  }
-
+const PrivateLayout: React.FC<PrivateLayoutProps> = ({ children }) => {
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* Renderiza tu Navbar principal aquí */}
       <Navbar />
-      <main className="p-6">{children}</main>
-      <footer className="bg-gray-800 text-white p-4 text-center">
-        © 2023 MentorApp
+
+      <main className="flex-grow">
+        {children}
+      </main>
+
+      <footer className="bg-gray-800 text-white p-4 text-center mt-auto">
+        &copy; 2025 MentorApp. Todos los derechos reservados.
       </footer>
+      <ToastContainer position="bottom-right" autoClose={5000} hideProgressBar={false} newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover />
     </div>
   );
 };

@@ -1,134 +1,110 @@
-// pages/dashboard/instructor/courses.tsx
-import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { FaPlusCircle } from 'react-icons/fa'; // Para el icono de "Crear"
+// pages/dashboard/cursos.tsx
+import React, { useState, useEffect } from 'react';
+import PublicLayout from '@/components/layout/PublicLayout'; // Asumiendo que tienes un layout público
+import CourseCard from '@/components/CourseCard';
+import CategoryFilter from '@/components/CategoryFilter'; // Asumiendo este componente
+import { Curso } from '@/types/Curso';
+import { FaSpinner } from 'react-icons/fa';
+import { toast } from 'react-toastify';
+import { useRouter } from 'next/router';
 
-// Asume la misma interfaz Curso que en CursosPage.tsx
-interface Curso {
-  id: string;
-  titulo: string;
-  descripcionCorta: string;
-  imagenUrl: string;
-  instructorNombre: string;
-  precio: number;
-  moneda: string;
-  publicado: boolean; // Para saber si el curso está publicado
-  // Añade aquí cualquier otro campo que el instructor necesite ver
-}
-
-const InstructorCoursesPage: React.FC = () => {
-  const [myCourses, setMyCourses] = useState<Curso[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+const CursosPage: React.FC = () => {
+  const [courses, setCourses] = useState<Curso[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // **IMPORTANTE:** En una aplicación real, instructorId debe venir del contexto de autenticación del usuario.
-  // Por ahora, usaremos el mismo ID hardcodeado que en CourseForm para que puedas ver los cursos que crees.
-  const instructorId = 'some-instructor-id'; // ¡REEMPLAZAR CON ID REAL DEL USUARIO AUTENTICADO!
+  const router = useRouter();
 
   useEffect(() => {
-    const fetchInstructorCourses = async () => {
+    const fetchData = async () => {
       try {
-        // Modificaremos la API de cursos para que pueda filtrar por instructorId
-        // Por ahora, obtendremos todos y filtraremos en el cliente (temporalmente para prueba)
-        const response = await fetch('/api/courses'); // Llama a la API general de cursos
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+        setLoading(true);
+        setError(null);
+
+        // Fetch courses
+        const coursesResponse = await fetch('/api/courses');
+        if (!coursesResponse.ok) {
+          const errorText = await coursesResponse.text();
+          console.error(`Error al cargar los cursos (Status: ${coursesResponse.status}):`, errorText);
+          throw new Error(`Error al cargar los cursos: ${coursesResponse.status} ${coursesResponse.statusText}. Respondió: ${errorText}`);
         }
-        const data: Curso[] = await response.json();
-        // Filtra los cursos que pertenecen a este instructor
-        const filtered = data.filter(curso => curso.instructorId === instructorId);
-        setMyCourses(filtered);
-      } catch (e: any) {
-        console.error("Error al cargar los cursos del instructor:", e);
-        setError("Error al cargar tus cursos: " + e.message);
+        const coursesData: Curso[] = await coursesResponse.json();
+        setCourses(coursesData);
+
+        // Fetch categories (assuming a separate API endpoint for categories)
+        const categoriesResponse = await fetch('/api/categories');
+        if (!categoriesResponse.ok) {
+          const errorText = await categoriesResponse.text();
+          console.error(`Error al cargar las categorías (Status: ${categoriesResponse.status}):`, errorText);
+          throw new Error(`Error al cargar las categorías: ${categoriesResponse.status} ${categoriesResponse.statusText}. Respondió: ${errorText}`);
+        }
+        const categoriesData: { categories: string[] } = await categoriesResponse.json();
+        setCategories(['all', ...categoriesData.categories]);
+
+      } catch (err: any) {
+        console.error("Error fetching data:", err);
+        setError(err.message || 'No se pudieron cargar los datos.');
+        toast.error(err.message || 'No se pudieron cargar los cursos o categorías.');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchInstructorCourses();
-  }, [instructorId]); // Se re-ejecuta si el instructorId cambia (aunque por ahora es fijo)
+    fetchData();
+  }, []);
 
-  if (loading) {
-    return <div className="text-center p-8">Cargando tus cursos...</div>;
-  }
+  const filteredCourses = selectedCategory === 'all'
+    ? courses
+    : courses.filter(course => course.categoria === selectedCategory);
 
-  if (error) {
-    return <div className="text-center p-8 text-red-600">Error: {error}</div>;
-  }
+  const handleCategoryChange = (category: string) => {
+    setSelectedCategory(category);
+  };
+
+  const handleViewCourse = (courseId: string) => {
+    router.push(`/cursos/${courseId}`); // Navegar a la página de detalle del curso
+  };
 
   return (
-    <div className="container mx-auto p-4">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">Mis Cursos</h1>
-        <Link href="/dashboard/instructor/crear" className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md flex items-center transition-colors duration-300">
-          <FaPlusCircle className="mr-2" /> Nuevo Curso
-        </Link>
-      </div>
+    <PublicLayout>
+      <div className="container mx-auto p-4 sm:p-6 lg:p-8">
+        <h1 className="text-4xl font-extrabold text-gray-900 mb-8 text-center">Todos los Cursos</h1>
 
-      {myCourses.length === 0 ? (
-        <div className="text-center text-gray-600 text-lg p-10 border border-dashed border-gray-300 rounded-lg">
-          <p className="mb-4">No tienes cursos publicados aún. ¡Es hora de crear uno!</p>
-          <Link href="/dashboard/instructor/crear" className="text-blue-600 hover:underline font-semibold">
-            Comienza tu primer curso aquí.
-          </Link>
+        <CategoryFilter categories={categories} selectedCategory={selectedCategory} onSelectCategory={handleCategoryChange} />
+
+        {loading && (
+          <div className="flex justify-center items-center h-64">
+            <FaSpinner className="animate-spin text-4xl text-blue-500" />
+            <p className="ml-4 text-lg text-gray-700">Cargando cursos...</p>
+          </div>
+        )}
+
+        {error && (
+          <div className="text-center text-red-600 text-lg my-8">
+            <p>{error}</p>
+          </div>
+        )}
+
+        {!loading && !error && filteredCourses.length === 0 && (
+          <div className="text-center text-gray-600 text-lg my-8">
+            <p>No se encontraron cursos en esta categoría.</p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+          {!loading && !error && filteredCourses.map(course => (
+            <CourseCard
+              key={course.id}
+              course={course}
+              isInstructorView={false} // Vista de usuario público
+              onView={() => handleViewCourse(course.id!)}
+            />
+          ))}
         </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full bg-white border border-gray-200 rounded-lg shadow-sm">
-            <thead>
-              <tr className="bg-gray-100 text-gray-600 uppercase text-sm leading-normal">
-                <th className="py-3 px-6 text-left">Título</th>
-                <th className="py-3 px-6 text-left">Estado</th>
-                <th className="py-3 px-6 text-left">Precio</th>
-                <th className="py-3 px-6 text-left">Calificación</th>
-                <th className="py-3 px-6 text-center">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="text-gray-700 text-sm font-light">
-              {myCourses.map(curso => (
-                <tr key={curso.id} className="border-b border-gray-200 hover:bg-gray-50">
-                  <td className="py-3 px-6 text-left whitespace-nowrap">
-                    <div className="flex items-center">
-                      <img src={curso.imagenUrl || 'https://via.placeholder.com/50x30?text=Curso'} alt={curso.titulo} className="w-12 h-8 rounded mr-3 object-cover" />
-                      <Link href={`/cursos/${curso.id}`} className="font-medium text-blue-600 hover:underline">
-                        {curso.titulo}
-                      </Link>
-                    </div>
-                  </td>
-                  <td className="py-3 px-6 text-left">
-                    <span className={`py-1 px-3 rounded-full text-xs font-semibold ${
-                      curso.publicado ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'
-                    }`}>
-                      {curso.publicado ? 'Publicado' : 'Borrador'}
-                    </span>
-                  </td>
-                  <td className="py-3 px-6 text-left">
-                    {new Intl.NumberFormat('es-MX', { style: 'currency', currency: curso.moneda }).format(curso.precio)}
-                  </td>
-                  <td className="py-3 px-6 text-left flex items-center">
-                    {curso.calificacionPromedio?.toFixed(1) || 'N/A'} {curso.calificacionPromedio !== undefined && <FaStar className="ml-1 text-yellow-500" />}
-                    <span className="ml-1 text-gray-500">({curso.numeroCalificaciones || 0})</span>
-                  </td>
-                  <td className="py-3 px-6 text-center">
-                    <div className="flex item-center justify-center space-x-2">
-                      {/* Estos botones serían para editar, ver, etc. */}
-                      <Link href={`/dashboard/instructor/editar/${curso.id}`} className="w-4 mr-2 transform hover:scale-110 text-purple-600">
-                        {/* Icono de editar o texto */} Editar
-                      </Link>
-                      <button onClick={() => alert(`Eliminar curso: ${curso.titulo}`)} className="w-4 mr-2 transform hover:scale-110 text-red-600">
-                        {/* Icono de eliminar o texto */} Eliminar
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+      </div>
+    </PublicLayout>
   );
 };
 
-export default InstructorCoursesPage;
+export default CursosPage;

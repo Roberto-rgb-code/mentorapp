@@ -1,41 +1,48 @@
 // pages/dashboard/instructor/crear.tsx
 import React, { useState, useEffect } from 'react';
-import PrivateLayout from '../../../components/layout/PrivateLayout';
-import { Curso } from '../../../types/Curso';
 import Link from 'next/link';
 import { FaArrowLeft, FaArrowRight, FaSave, FaSpinner } from 'react-icons/fa';
-
-// Importa los componentes de los pasos
-import CoursePlanningStep from '../../../components/instructor/create-course/CoursePlanningStep';
-import CourseObjectivesStep from '../../../components/instructor/create-course/CourseObjectivesStep';
-import CourseCurriculumStep from '../../../components/instructor/create-course/CourseCurriculumStep';
-import CourseLandingPageStep from '../../../components/instructor/create-course/CourseLandingPageStep';
-import CoursePricingStep from '../../../components/instructor/create-course/CoursePricingStep';
-import CoursePromotionsStep from '../../../components/instructor/create-course/CoursePromotionsStep';
-import CourseMessagesStep from '../../../components/instructor/create-course/CourseMessagesStep';
-import CourseReviewPublishStep from '../../../components/instructor/create-course/CourseReviewPublishStep';
-
-// Importa el sidebar de navegación
-import CreateCourseSidebar from '../../../components/instructor/create-course/CreateCourseSidebar';
-
 import { toast } from 'react-toastify';
 import { useRouter } from 'next/router';
 
+// Importaciones de tipos y hooks (usando alias @/)
+import { Curso } from '@/types/Curso';
+import { useAuth } from '@/hooks/useAuth'; // Asegúrate de que este hook exista y funcione
+
+// Importa los componentes de los pasos usando alias
+import CoursePlanningStep from '@/components/instructor/create-course/CoursePlanningStep';
+import CourseObjectivesStep from '@/components/instructor/create-course/CourseObjectivesStep';
+import CourseCurriculumStep from '@/components/instructor/create-course/CourseCurriculumStep';
+import CourseLandingPageStep from '@/components/instructor/create-course/CourseLandingPageStep';
+import CoursePricingStep from '@/components/instructor/create-course/CoursePricingStep';
+import CoursePromotionsStep from '@/components/instructor/create-course/CoursePromotionsStep';
+import CourseMessagesStep from '@/components/instructor/create-course/CourseMessagesStep';
+import CourseReviewPublishStep from '@/components/instructor/create-course/CourseReviewPublishStep';
+
+// Importa el sidebar de navegación específico para la creación de cursos
+import CreateCourseSidebar from '@/components/instructor/create-course/CreateCourseSidebar';
+
+// Importa el layout privado general (sin el sidebar del instructor)
+import PrivateLayout from '@/components/layout/PrivateLayout'; // Usando PrivateLayout
+
 // Define los pasos del formulario
 const STEPS = [
-  'Planifica tu curso',          // Paso 0
-  'Estudiantes objetivo',        // Paso 1
-  'Estructura del curso',        // Paso 2
-  'Página de inicio del curso',  // Paso 3
-  'Precios',                     // Paso 4
-  'Promociones',                 // Paso 5
-  'Mensajes del curso',          // Paso 6
-  'Enviar para revisión',        // Paso 7 (Final)
+  'Planifica tu curso',
+  'Estudiantes objetivo',
+  'Estructura del curso',
+  'Página de inicio del curso',
+  'Precios',
+  'Promociones',
+  'Mensajes del curso',
+  'Enviar para revisión',
 ];
 
 const CrearCursoPage: React.FC = () => {
   const router = useRouter();
-  const [currentStep, setCurrentStep] = useState(0); // Índice del paso actual
+  const { id: courseIdFromQuery } = router.query;
+  const { user } = useAuth();
+
+  const [currentStep, setCurrentStep] = useState(0);
   const [courseData, setCourseData] = useState<Partial<Curso>>({
     id: undefined,
     titulo: '',
@@ -46,8 +53,8 @@ const CrearCursoPage: React.FC = () => {
     idioma: 'Español',
     precio: 0,
     moneda: 'MXN',
-    instructorId: 'placeholder-instructor-id', // Placeholder, reemplazar con lógica real
-    instructorNombre: 'Instructor Prueba', // Placeholder, reemplazar con lógica real
+    instructorId: '', // Se inicializa vacío, se llenará desde useAuth
+    instructorNombre: '', // Se inicializa vacío, se llenará desde useAuth
     imagenUrl: '',
     videoIntroduccionUrl: '',
     publicado: false,
@@ -55,8 +62,8 @@ const CrearCursoPage: React.FC = () => {
     loQueAprenderas: [''],
     secciones: [],
     duracionEstimada: 0,
-    fechaCreacion: new Date().toISOString(),
-    fechaActualizacion: new Date().toISOString(),
+    fechaCreacion: '', // Inicializar como string vacío para evitar hidratación mismatch
+    fechaActualizacion: '', // Inicializar como string vacío para evitar hidratación mismatch
     dedicacionTiempo: 'Todavía no he decidido',
     publicoObjetivo: '',
     mensajeBienvenida: '',
@@ -64,33 +71,32 @@ const CrearCursoPage: React.FC = () => {
     descuentoInicial: '',
   });
   const [isSaving, setIsSaving] = useState(false);
-  const [courseIdFromQuery, setCourseIdFromQuery] = useState<string | null>(null);
 
   useEffect(() => {
-    // Simulamos obtener el ID y nombre del instructor del contexto de autenticación
-    // RECUERDA: Reemplaza esto con tu lógica real de autenticación (ej. desde un contexto de auth o Redux)
-    const simulatedInstructorId = 'user_01HM90V30H0P8KNYB3D37F2W2E'; // Un ID de ejemplo para el instructor
-    const simulatedInstructorName = 'Kevin Medina'; // Un nombre de ejemplo
+    // Asigna el ID y nombre del instructor desde el contexto de autenticación
+    if (user?.id && user?.name) { // Asume que tu objeto 'user' tiene 'id' y 'name'
+      setCourseData(prev => ({
+        ...prev,
+        instructorId: user.id,
+        instructorNombre: user.name,
+      }));
+    } else {
+      // Opcional: Redirigir si el usuario no está autenticado como instructor
+      // toast.error('Debes iniciar sesión como instructor para crear cursos.');
+      // router.push('/login');
+    }
 
-    setCourseData(prev => ({
-      ...prev,
-      instructorId: simulatedInstructorId,
-      instructorNombre: simulatedInstructorName,
-    }));
-
-    if (router.query.id && typeof router.query.id === 'string') {
-      const existingCourseId = router.query.id;
-      setCourseIdFromQuery(existingCourseId);
+    // Cargar datos del curso si hay un ID en la URL (modo edición)
+    if (courseIdFromQuery && typeof courseIdFromQuery === 'string') {
       const fetchCourse = async () => {
         try {
-          const response = await fetch(`/api/courses/${existingCourseId}`);
+          const response = await fetch(`/api/courses/${courseIdFromQuery}`);
           if (!response.ok) {
-            // Intenta leer el mensaje de error del backend si existe
             const errorData = await response.json().catch(() => ({ message: 'Error desconocido al cargar el curso.' }));
             throw new Error(errorData.message || 'No se pudo cargar el curso para edición.');
           }
           const data: Curso = await response.json();
-          // Aseguramos que los arrays sean al menos un array vacío si vienen null/undefined
+          // Aseguramos que los arrays sean al menos un array vacío o con un elemento vacío
           data.requisitos = data.requisitos && data.requisitos.length > 0 ? data.requisitos : [''];
           data.loQueAprenderas = data.loQueAprenderas && data.loQueAprenderas.length > 0 ? data.loQueAprenderas : [''];
           data.secciones = data.secciones || [];
@@ -100,12 +106,12 @@ const CrearCursoPage: React.FC = () => {
         } catch (error: any) {
           console.error('Error al cargar curso para edición:', error);
           toast.error(error.message || 'Error al cargar el curso para edición.');
-          router.push('/dashboard/cursos'); // Redirige si hay un error al cargar
+          router.push('/dashboard/instructor'); // Redirige al panel de cursos del instructor
         }
       };
       fetchCourse();
     }
-  }, [router.query.id, router]);
+  }, [router.query.id, router, user]); // Dependencias: router.query.id, router, y el objeto user
 
   const handleChange = (field: string, value: any) => {
     setCourseData(prev => ({ ...prev, [field]: value }));
@@ -129,7 +135,9 @@ const CrearCursoPage: React.FC = () => {
       // Filtrar arrays para evitar enviar elementos vacíos a la API
       const dataToSend = {
         ...courseData,
-        fechaActualizacion: new Date().toISOString(),
+        // Asigna fechaCreacion solo si es un nuevo curso, de lo contrario, se mantiene la existente de la DB
+        fechaCreacion: courseData.fechaCreacion || new Date().toISOString(),
+        fechaActualizacion: new Date().toISOString(), // Siempre actualiza la fecha de actualización
         requisitos: courseData.requisitos?.filter(Boolean) || [],
         loQueAprenderas: courseData.loQueAprenderas?.filter(Boolean) || [],
         secciones: courseData.secciones?.map(sec => ({
@@ -162,9 +170,7 @@ const CrearCursoPage: React.FC = () => {
       console.log('Curso guardado/actualizado:', result);
 
       if (!courseIdFromQuery && result.cursoId) {
-        setCourseIdFromQuery(result.cursoId);
         setCourseData(prev => ({ ...prev, id: result.cursoId }));
-        // Usa router.replace para cambiar la URL sin añadir una nueva entrada al historial del navegador
         router.replace(`/dashboard/instructor/crear?id=${result.cursoId}`, undefined, { shallow: true });
       }
 
@@ -176,51 +182,47 @@ const CrearCursoPage: React.FC = () => {
     }
   };
 
-  // Calcula si el curso está listo para publicar
   const isCourseReady =
     courseData.titulo &&
     courseData.descripcionLarga &&
     courseData.imagenUrl &&
     (courseData.secciones && courseData.secciones.length > 0 &&
       courseData.secciones.every(s => s.titulo && s.lecciones.length > 0 &&
-        s.lecciones.every(l => l.titulo && l.tipo && l.contenidoUrl) // Todas las lecciones deben tener título, tipo y URL de contenido
+        s.lecciones.every(l => l.titulo && l.tipo && l.contenidoUrl)
       )
     ) &&
     (courseData.precio !== undefined && courseData.precio > 0);
 
 
   const handleNextStep = async () => {
-    // Validaciones específicas para cada paso antes de avanzar
-    if (currentStep === 0) { // Planifica tu curso
+    if (currentStep === 0) {
       if (!courseData.categoria || !courseData.idioma || !courseData.nivel || !courseData.dedicacionTiempo) {
         toast.error('Por favor, completa los campos de planificación del curso.');
         return;
       }
-    } else if (currentStep === 1) { // Estudiantes objetivo
+    } else if (currentStep === 1) {
       if (!courseData.loQueAprenderas || courseData.loQueAprenderas.every(item => !item.trim()) || courseData.loQueAprenderas.length < 1) {
         toast.error('Por favor, añade al menos un objetivo de aprendizaje.');
         return;
       }
-    } else if (currentStep === 2) { // Estructura del curso
+    } else if (currentStep === 2) {
       if (!courseData.secciones || courseData.secciones.length === 0 || courseData.secciones.some(s => !s.titulo.trim() || s.lecciones.length === 0 || s.lecciones.some(l => !l.titulo.trim()))) {
         toast.error('Por favor, añade al menos una sección con lecciones válidas (título de sección y título de lección).');
         return;
       }
-    } else if (currentStep === 3) { // Página de inicio del curso
+    } else if (currentStep === 3) {
       if (!courseData.titulo || !courseData.descripcionLarga || !courseData.imagenUrl) {
         toast.error('Por favor, completa el título, descripción larga y la URL de la imagen de portada.');
         return;
       }
-    } else if (currentStep === 4) { // Precios
+    } else if (currentStep === 4) {
       if (courseData.precio === undefined || courseData.precio <= 0) {
         toast.error('Por favor, ingresa un precio válido (mayor a 0) para el curso.');
         return;
       }
     }
-    // No hay validaciones estrictas para el Paso 5 (Promociones) o Paso 6 (Mensajes)
-    // porque son opcionales o se gestionan de otra forma.
 
-    await handleSaveCourse(); // Guardar antes de avanzar
+    await handleSaveCourse();
 
     if (currentStep < STEPS.length - 1) {
       setCurrentStep(prev => prev + 1);
@@ -241,7 +243,7 @@ const CrearCursoPage: React.FC = () => {
 
     const courseToPublish = {
       ...courseData,
-      publicado: true, // Crucial: marca como publicado
+      publicado: true,
       fechaActualizacion: new Date().toISOString(),
       requisitos: courseData.requisitos?.filter(Boolean) || [],
       loQueAprenderas: courseData.loQueAprenderas?.filter(Boolean) || [],
@@ -278,7 +280,7 @@ const CrearCursoPage: React.FC = () => {
       }
 
       toast.success('¡Curso publicado exitosamente!');
-      router.push('/dashboard/cursos'); // Redirige al listado de cursos
+      router.push('/dashboard/instructor');
     } catch (error: any) {
       console.error('Error al publicar el curso:', error);
       toast.error(error.message || 'Error al publicar el curso.');
@@ -358,20 +360,20 @@ const CrearCursoPage: React.FC = () => {
   };
 
   return (
-    <PrivateLayout>
+    <PrivateLayout> {/* Cambiado de InstructorDashboardLayout a PrivateLayout */}
       <div className="flex min-h-screen">
-        {/* Sidebar de Navegación */}
+        {/* El sidebar CreateCourseSidebar se mantiene aquí, ya que es parte del formulario de creación */}
         <CreateCourseSidebar
           steps={STEPS}
           currentStepIndex={currentStep}
           onSelectStep={setCurrentStep}
-          courseId={courseIdFromQuery}
+          courseId={typeof courseIdFromQuery === 'string' ? courseIdFromQuery : null}
         />
 
-        {/* Contenido Principal */}
+        {/* Contenido Principal del formulario */}
         <div className="flex-grow p-8 bg-gray-100">
           <div className="flex justify-between items-center mb-6">
-            <Link href="/dashboard/cursos" className="flex items-center text-blue-600 hover:text-blue-800 transition-colors">
+            <Link href="/dashboard/instructor" className="flex items-center text-blue-600 hover:text-blue-800 transition-colors">
               <FaArrowLeft className="mr-2" />
               Volver a mis cursos
             </Link>

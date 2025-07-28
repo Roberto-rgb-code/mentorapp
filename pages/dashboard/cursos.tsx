@@ -120,15 +120,14 @@ const CursosPage: React.FC = () => {
         {/* Botón para instructores */}
         {currentUserIsInstructor && (
           <div className="text-center mb-8">
-            <Link href="/dashboard/instructor/crear" className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-full shadow-lg transition-colors duration-300">
-              ¿Eres un instructor? Crea un curso
+            <Link href="/dashboard/instructor" className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-full shadow-lg transition-colors duration-300">
+              ¿Eres un instructor? Ir a tu panel
             </Link>
           </div>
         )}
 
         <div className="flex flex-col md:flex-row gap-8">
           {/* Sidebar de Categorías */}
-          {/* El sidebar se muestra siempre aquí, puedes añadir lógica para ocultarlo/mostrarlo si es un requisito */}
           <CategorySidebar
             categories={categories}
             selectedCategory={selectedCategory}
