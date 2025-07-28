@@ -46,3 +46,5 @@ next-env.d.ts
 *.tmp             # Archivos con extensión .tmp
 *.log             # Archivos de log (si no están ya cubiertos por debug)
 .temp/            # Otro posible directorio temporal
+
+tmp

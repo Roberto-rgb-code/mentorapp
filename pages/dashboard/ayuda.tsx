@@ -1,5 +1,5 @@
-import PublicLayout from '../components/layout/PublicLayout';
-import ChatbotPanel from '../components/ChatbotPanel';
+import PrivateLayout from '../../components/layout/PrivateLayout'; // Cambiado a PrivateLayout
+import ChatbotPanel from '../../components/ChatbotPanel';
 import { FaQuestionCircle, FaBookOpen, FaEnvelopeOpenText } from 'react-icons/fa';
 
 const FAQS = [
@@ -27,7 +27,7 @@ const FAQS = [
 
 const Ayuda = () => {
   return (
-    <PublicLayout>
+    <PrivateLayout> {/* Cambiado a PrivateLayout */}
       {/* Hero */}
       <section className="text-center py-12 bg-blue-50">
         <h1 className="text-4xl font-bold text-blue-900 flex items-center justify-center gap-2">
@@ -76,7 +76,7 @@ const Ayuda = () => {
           </div>
         </div>
       </section>
-    </PublicLayout>
+    </PrivateLayout>
   );
 };
 
