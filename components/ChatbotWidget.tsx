@@ -11,7 +11,7 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = () => {
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState<{ text: string; sender: string }[]>([
     {
-      text: '¡Hola! Soy Grok, tu asistente en MentorApp. ¿En qué puedo ayudarte hoy? Puedo sugerirte servicios como asesorías, cursos, diagnósticos o el marketplace.',
+      text: '¡Hola! Soy tu asistente en MentorIA. ¿En qué puedo ayudarte hoy? Puedo sugerirte servicios como asesorías, cursos, diagnósticos o el marketplace.',
       sender: 'assistant',
     },
   ]);
@@ -83,7 +83,7 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = () => {
       >
         <div className="bg-blue-600 text-white p-4 rounded-t-lg flex items-center justify-between">
           <h3 className="text-lg font-semibold flex items-center">
-            <FaRobot className="mr-2" /> Grok, tu Asistente
+            <FaRobot className="mr-2" /> MentorIA, tu Asistente
           </h3>
           <button
             onClick={() => setIsOpen(false)}
