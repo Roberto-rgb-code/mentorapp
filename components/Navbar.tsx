@@ -1,23 +1,24 @@
 // components/Navbar.tsx
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth'; // Usando alias @/
-import { signOut } from 'firebase/auth';
-import { auth } from '@/lib/firebase'; // Usando alias @/
 import { useRouter } from 'next/router';
 import { useState } from 'react';
+import { toast } from 'react-toastify'; // Importa toast para notificaciones
 
 const Navbar = () => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth(); // Obtén la función logout del contexto
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      await logout(); // Llama a la función logout del AuthContext
+      toast.success('Sesión cerrada exitosamente.'); // Notificación de éxito
       router.push('/login');
       setIsOpen(false);
     } catch (error) {
       console.error('Error al cerrar sesión:', error);
+      toast.error('Error al cerrar sesión. Inténtalo de nuevo.'); // Notificación de error
     }
   };
 
@@ -58,7 +59,7 @@ const Navbar = () => {
           {/* Logo y nombre de la aplicación */}
           <div className="flex items-center">
             <Link href="/" className="flex-shrink-0 text-white text-3xl font-extrabold tracking-tight hover:text-blue-100 transition-colors duration-200">
-              MentorApp
+                MentorApp
             </Link>
           </div>
 
