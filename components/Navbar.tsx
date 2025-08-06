@@ -2,45 +2,121 @@
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth'; // Usando alias @/
 import { useRouter } from 'next/router';
-import { useState } from 'react';
-import { toast } from 'react-toastify'; // Importa toast para notificaciones
+import { useState, useEffect, useRef } from 'react';
+import { toast } from 'react-toastify';
+import { FaUserCircle, FaSignOutAlt, FaCog, FaBars, FaTimes, FaDollarSign } from 'react-icons/fa';
 
 const Navbar = () => {
-  const { user, logout } = useAuth(); // Obtén la función logout del contexto
+  const { user, logout, loading } = useAuth();
   const router = useRouter();
-  const [isOpen, setIsOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node) && mobileMenuOpen) {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [mobileMenuOpen]);
 
   const handleLogout = async () => {
+    console.log("Navbar: Click en Cerrar Sesión. Iniciando proceso de logout.");
+    setDropdownOpen(false);
+    setIsLoggingOut(true);
     try {
-      await logout(); // Llama a la función logout del AuthContext
-      toast.success('Sesión cerrada exitosamente.'); // Notificación de éxito
+      await logout();
+      toast.success('Sesión cerrada exitosamente.');
+      console.log("Navbar: Sesión cerrada, redirigiendo a /login");
       router.push('/login');
-      setIsOpen(false);
     } catch (error) {
-      console.error('Error al cerrar sesión:', error);
-      toast.error('Error al cerrar sesión. Inténtalo de nuevo.'); // Notificación de error
+      console.error('Navbar: Error al cerrar sesión:', error);
+      toast.error('Error al cerrar sesión. Inténtalo de nuevo.');
+    } finally {
+      setIsLoggingOut(false);
     }
   };
 
-  // Clases para enlaces de navegación principales
+  // Clases para enlaces de navegación principales con efecto de subrayado
   const navLinkClasses = (href: string) =>
     `relative block px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-300 ease-in-out
     ${
       router.pathname === href
-        ? 'bg-blue-700 text-white shadow-inner' // Estilo para enlace activo
-        : 'text-blue-100 hover:bg-blue-700 hover:text-white hover:shadow-md' // Estilo para enlace inactivo
-    }
-    transform hover:scale-105`; // Efecto de escala al pasar el ratón
-
-  // Clases para botones en el menú móvil
-  const navButtonClasses = (isPrimary = false) =>
-    `w-full text-center px-4 py-3 rounded-lg text-base font-medium transition-colors duration-200 shadow-md
-    ${
-      isPrimary
-        ? 'bg-white text-blue-600 hover:bg-blue-100'
-        : 'bg-red-600 text-white hover:bg-red-700'
+        ? 'text-white bg-blue-600 shadow-inner' // Enlace activo
+        : 'text-blue-100 hover:text-white group' // Enlace inactivo con grupo para hover
     }
     transform hover:scale-105`;
+
+  // Estilo para el subrayado animado en hover
+  const underlineHoverEffect = `
+    .group:after {
+      content: '';
+      position: absolute;
+      width: 0%;
+      height: 2px;
+      display: block;
+      margin-top: 5px;
+      right: 0;
+      background: #fff;
+      transition: width 0.3s ease;
+    }
+    .group:hover:after {
+      width: 100%;
+      left: 0;
+      background: #fff;
+    }
+    .group:hover {
+      background-color: rgba(255, 255, 255, 0.1); /* Fondo sutil en hover */
+      border-radius: 0.5rem;
+    }
+  `;
+
+  // Estilos de botón Uiverse para "Iniciar Sesión" y "Empezar Aquí"
+  const uiverseButtonPublic = `
+    .uiverse-button {
+      position: relative;
+      background-color: #ffffff;
+      padding: 0.75rem 1.5rem;
+      border-radius: 9999px; /* Fully rounded */
+      font-size: 0.875rem; /* text-sm */
+      font-weight: 600; /* font-semibold */
+      color: #2563eb; /* blue-600 */
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      border: none;
+    }
+
+    .uiverse-button:hover {
+      background-color: #eff6ff; /* blue-50 */
+      transform: translateY(-2px);
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+    }
+
+    .uiverse-button.primary {
+      background-color: #2563eb; /* blue-600 */
+      color: #ffffff;
+    }
+
+    .uiverse-button.primary:hover {
+      background-color: #1d4ed8; /* blue-700 */
+      transform: translateY(-2px);
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+    }
+  `;
+
 
   const getUserDisplayName = () => {
     if (user && user.displayName) {
@@ -52,121 +128,160 @@ const Navbar = () => {
     return 'Usuario';
   };
 
+  if (loading) {
+    return null;
+  }
+
   return (
-    <nav className="bg-gradient-to-r from-blue-600 to-blue-800 shadow-xl relative z-50 font-inter"> {/* Fondo degradado y sombra más profunda */}
+    <nav className="bg-gradient-to-r from-blue-500 to-blue-700 shadow-xl relative z-50 font-inter">
+      <style jsx>{`
+        ${underlineHoverEffect}
+        ${uiverseButtonPublic}
+      `}</style>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16 items-center"> {/* Centrar verticalmente los ítems */}
-          {/* Logo y nombre de la aplicación */}
+        <div className="flex justify-between h-16 items-center">
           <div className="flex items-center">
             <Link href="/" className="flex-shrink-0 text-white text-3xl font-extrabold tracking-tight hover:text-blue-100 transition-colors duration-200">
                 MentorApp
             </Link>
           </div>
 
-          {/* Enlaces de escritorio (visibles en pantallas medianas y grandes) */}
-          <div className="hidden md:flex md:items-center md:space-x-2 lg:space-x-4"> {/* Espaciado ajustado */}
+          <div className="hidden md:flex md:items-center md:space-x-2 lg:space-x-4">
             {user ? (
               <>
                 <Link href="/dashboard/inicio" className={navLinkClasses("/dashboard/inicio")}>Inicio</Link>
-                <Link href="/dashboard/asesoria" className={navLinkClasses("/dashboard/asesoria")}>Asesoría</Link>
+                <Link href="/dashboard/mentoria" className={navLinkClasses("/dashboard/mentoria")}>Mentoría</Link>
                 <Link href="/dashboard/cursos" className={navLinkClasses("/dashboard/cursos")}>Cursos</Link>
                 <Link href="/dashboard/marketplace" className={navLinkClasses("/dashboard/marketplace")}>Marketplace</Link>
-                <Link href="/plans" className={navLinkClasses("/plans")}>Paquetes</Link>
-                <Link href="/services" className={navLinkClasses("/services")}>Servicios</Link>
-                <Link href="/contact" className={navLinkClasses("/contact")}>Contacto</Link>
-                {/* Ayuda AHORA SOLO PARA USUARIOS LOGUEADOS */}
+                <Link href="/plans" className={navLinkClasses("/plans")}>Planes y Paquetes</Link>
                 <Link href="/dashboard/ayuda" className={navLinkClasses("/dashboard/ayuda")}>Ayuda</Link>
                 <Link href="/dashboard/diagnostico" className={navLinkClasses("/dashboard/diagnostico")}>Diagnóstico</Link>
+                <Link href="/dashboard/pagos" className={navLinkClasses("/dashboard/pagos")}>Pagos</Link> {/* Movido al final */}
 
-                {/* Menú desplegable para Perfil y cerrar sesión */}
-                <div className="relative group">
-                  <button className="text-white bg-blue-700 hover:bg-blue-800 px-4 py-2 rounded-lg text-sm font-medium flex items-center transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105">
-                    Hola, {getUserDisplayName()}
+                <div className="relative group" ref={dropdownRef}>
+                  <button
+                    className="text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm font-medium flex items-center transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105"
+                    onClick={() => setDropdownOpen(!dropdownOpen)}
+                    disabled={isLoggingOut}
+                  >
+                    <FaUserCircle className="mr-2" /> Hola, {getUserDisplayName()}
                     <svg className="ml-2 -mr-0.5 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                       <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                     </svg>
                   </button>
-                  <div className="absolute right-0 mt-2 w-48 rounded-lg shadow-xl py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 ease-in-out transform scale-95 group-hover:scale-100 origin-top-right z-50">
-                    <Link href="/perfil" className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-md transition-colors duration-200">Mi Perfil</Link>
-                    <div className="border-t border-gray-100 my-1"></div>
-                    <button onClick={handleLogout} className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 rounded-md transition-colors duration-200">Cerrar Sesión</button>
-                  </div>
+                  {dropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-48 rounded-lg shadow-xl py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none transition-all duration-300 ease-in-out transform scale-100 origin-top-right z-50">
+                      <Link href="/perfil" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-md transition-colors duration-200" onClick={() => setDropdownOpen(false)}>
+                        <FaCog className="mr-2" /> Mi Perfil
+                      </Link>
+                      <div className="border-t border-gray-100 my-1"></div>
+                      <button
+                        onClick={handleLogout}
+                        className="flex items-center w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 rounded-md transition-colors duration-200"
+                        disabled={isLoggingOut}
+                      >
+                        <FaSignOutAlt className="mr-2" /> {isLoggingOut ? 'Cerrando sesión...' : 'Cerrar Sesión'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </>
             ) : (
-              // Enlaces para usuarios NO logueados (Ayuda ya no está aquí)
               <>
-                <Link href="/plans" className={navLinkClasses("/plans")}>Planes y Paquetes</Link>
+                <Link href="/" className={navLinkClasses("/")}>Inicio</Link>
                 <Link href="/services" className={navLinkClasses("/services")}>Servicios</Link>
-                <Link href="/contact" className={navLinkClasses("/contact")}>Contacto</Link>
-                {/* Puedes añadir un enlace a la página "Nosotros" aquí si quieres que sea visible públicamente */}
-                <Link href="/nosotros" className={navLinkClasses("/nosotros")}>Nosotros</Link>
+                <Link href="/community" className={navLinkClasses("/community")}>Comunidad</Link>
 
-                <Link href="/login" className="text-white hover:text-blue-100 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 bg-blue-700 hover:bg-blue-800 shadow-md">Iniciar Sesión</Link> {/* Botón de login destacado */}
-                <Link href="/register" className="bg-white text-blue-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors duration-200 shadow-md">
+                <button
+                  onClick={() => router.push('/login')}
+                  className="uiverse-button"
+                >
+                  Iniciar Sesión
+                </button>
+                <button
+                  onClick={() => router.push('/register')}
+                  className="uiverse-button primary"
+                >
                   Empezar Aquí
-                </Link>
+                </button>
               </>
             )}
           </div>
 
-          {/* Botón de menú móvil */}
           <div className="-mr-2 flex md:hidden items-center">
             <button
-              onClick={() => setIsOpen(!isOpen)}
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               type="button"
-              className="inline-flex items-center justify-center p-2 rounded-md text-blue-100 hover:text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white transition-colors duration-200"
+              className="inline-flex items-center justify-center p-2 rounded-md text-blue-100 hover:text-white hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white transition-colors duration-200"
               aria-controls="mobile-menu"
-              aria-expanded={isOpen ? 'true' : 'false'}
+              aria-expanded={mobileMenuOpen ? 'true' : 'false'}
             >
               <span className="sr-only">Abrir menú principal</span>
-              {!isOpen ? (
-                <svg className="block h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
+              {!mobileMenuOpen ? (
+                <FaBars className="block h-6 w-6" />
               ) : (
-                <svg className="block h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <FaTimes className="block h-6 w-6" />
               )}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Menú móvil */}
-      <div className={`${isOpen ? 'block' : 'hidden'} md:hidden bg-blue-700`} id="mobile-menu"> {/* Fondo para el menú móvil */}
-        <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+      {mobileMenuOpen && (
+        <div ref={mobileMenuRef} className="md:hidden absolute top-0 left-0 w-full h-screen bg-blue-700 bg-opacity-95 flex flex-col items-center justify-center space-y-8 z-40">
+          <button onClick={() => setMobileMenuOpen(false)} className="absolute top-4 right-4 text-white focus:outline-none">
+            <FaTimes size={30} />
+          </button>
+
           {user ? (
             <>
-              <Link href="/dashboard/inicio" className={navLinkClasses("/dashboard/inicio")} onClick={() => setIsOpen(false)}>Inicio</Link>
-              <Link href="/dashboard/asesoria" className={navLinkClasses("/dashboard/asesoria")} onClick={() => setIsOpen(false)}>Asesoría</Link>
-              <Link href="/dashboard/cursos" className={navLinkClasses("/dashboard/cursos")} onClick={() => setIsOpen(false)}>Cursos</Link>
-              <Link href="/dashboard/marketplace" className={navLinkClasses("/dashboard/marketplace")} onClick={() => setIsOpen(false)}>Marketplace</Link>
-              <Link href="/plans" className={navLinkClasses("/plans")} onClick={() => setIsOpen(false)}>Paquetes</Link>
-              <Link href="/services" className={navLinkClasses("/services")} onClick={() => setIsOpen(false)}>Servicios</Link>
-              <Link href="/contact" className={navLinkClasses("/contact")} onClick={() => setIsOpen(false)}>Contacto</Link>
-              {/* Ayuda AHORA SOLO PARA USUARIOS LOGUEADOS (en móvil) */}
-              <Link href="/dashboard/ayuda" className={navLinkClasses("/dashboard/ayuda")} onClick={() => setIsOpen(false)}>Ayuda</Link>
-              <Link href="/dashboard/diagnostico" className={navLinkClasses("/dashboard/diagnostico")} onClick={() => setIsOpen(false)}>Mi Diagnóstico</Link>
-              <div className="border-t border-blue-600 my-2"></div> {/* Separador más oscuro */}
-              <Link href="/perfil" className={navLinkClasses("/perfil")} onClick={() => setIsOpen(false)}>Mi Perfil</Link>
-              <button onClick={handleLogout} className={navButtonClasses()}>Cerrar Sesión</button>
+              <Link href="/dashboard/inicio" className="text-white text-3xl font-bold hover:text-blue-200 transition-colors duration-200" onClick={() => setMobileMenuOpen(false)}>Inicio</Link>
+              <Link href="/dashboard/mentoria" className="text-white text-3xl font-bold hover:text-blue-200 transition-colors duration-200" onClick={() => setMobileMenuOpen(false)}>Mentoría</Link>
+              <Link href="/dashboard/cursos" className="text-white text-3xl font-bold hover:text-blue-200 transition-colors duration-200" onClick={() => setMobileMenuOpen(false)}>Cursos</Link>
+              <Link href="/dashboard/marketplace" className="text-white text-3xl font-bold hover:text-blue-200 transition-colors duration-200" onClick={() => setMobileMenuOpen(false)}>Marketplace</Link>
+              <Link href="/plans" className="text-white text-3xl font-bold hover:text-blue-200 transition-colors duration-200" onClick={() => setMobileMenuOpen(false)}>Planes y Paquetes</Link>
+              <Link href="/dashboard/ayuda" className="text-white text-3xl font-bold hover:text-blue-200 transition-colors duration-200" onClick={() => setMobileMenuOpen(false)}>Ayuda</Link>
+              <Link href="/dashboard/diagnostico" className="text-white text-3xl font-bold hover:text-blue-200 transition-colors duration-200" onClick={() => setMobileMenuOpen(false)}>Mi Diagnóstico</Link>
+              <Link href="/dashboard/pagos" className="text-white text-3xl font-bold hover:text-blue-200 transition-colors duration-200" onClick={() => setMobileMenuOpen(false)}>Pagos</Link>
+              <div className="border-t border-blue-500 w-2/3 my-4"></div>
+              <Link href="/perfil" className="text-white text-3xl font-bold hover:text-blue-200 transition-colors duration-200" onClick={() => setMobileMenuOpen(false)}>Mi Perfil</Link>
+              <button
+                onClick={handleLogout}
+                className="bg-red-600 text-white px-6 py-3 rounded-full font-semibold text-xl hover:bg-red-700 transition-colors duration-200 shadow-lg"
+                disabled={isLoggingOut}
+              >
+                {isLoggingOut ? (
+                  <div className="flex items-center justify-center">
+                    <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
+                    Cerrando...
+                  </div>
+                ) : (
+                  "Cerrar Sesión"
+                )}
+              </button>
             </>
           ) : (
-            // Enlaces para usuarios NO logueados (Ayuda ya no está aquí en móvil)
             <>
-              <Link href="/plans" className={navLinkClasses("/plans")} onClick={() => setIsOpen(false)}>Planes y Paquetes</Link>
-              <Link href="/services" className={navLinkClasses("/services")} onClick={() => setIsOpen(false)}>Servicios</Link>
-              <Link href="/contact" className={navLinkClasses("/contact")} onClick={() => setIsOpen(false)}>Contacto</Link>
-              <Link href="/nosotros" className={navLinkClasses("/nosotros")} onClick={() => setIsOpen(false)}>Nosotros</Link> {/* Agregado también para móvil */}
-              <div className="border-t border-blue-600 my-2"></div> {/* Separador más oscuro */}
-              <Link href="/login" className={navLinkClasses("/login")} onClick={() => setIsOpen(false)}>Iniciar Sesión</Link>
-              <Link href="/register" className={navButtonClasses(true)} onClick={() => setIsOpen(false)}>Empezar Aquí</Link>
+              <Link href="/" className="text-white text-3xl font-bold hover:text-blue-200 transition-colors duration-200" onClick={() => setMobileMenuOpen(false)}>Inicio</Link>
+              <Link href="/services" className="text-white text-3xl font-bold hover:text-blue-200 transition-colors duration-200" onClick={() => setMobileMenuOpen(false)}>Servicios</Link>
+              <Link href="/community" className="text-white text-3xl font-bold hover:text-blue-200 transition-colors duration-200" onClick={() => setMobileMenuOpen(false)}>Comunidad</Link>
+              <div className="border-t border-blue-500 w-2/3 my-4"></div>
+              <button
+                onClick={() => { router.push('/login'); setMobileMenuOpen(false); }}
+                className="uiverse-button"
+              >
+                Iniciar Sesión
+              </button>
+              <button
+                onClick={() => { router.push('/register'); setMobileMenuOpen(false); }}
+                className="uiverse-button primary"
+              >
+                Empezar Aquí
+              </button>
             </>
           )}
         </div>
-      </div>
+      )}
     </nav>
   );
 };

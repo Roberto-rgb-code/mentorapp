@@ -1,10 +1,9 @@
 // hooks/useAuth.ts
 import { useState, useEffect } from 'react';
-import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth'; // Importa User de Firebase como FirebaseUser para evitar conflicto de nombres
+import { onAuthStateChanged, User as FirebaseUser, signOut } from 'firebase/auth'; // Importa User y signOut
 import { auth } from '@/lib/firebase'; // Asegúrate de que tu instancia de 'auth' de Firebase esté correctamente exportada aquí
 
 // Define la interfaz para el objeto de usuario que tu hook devolverá
-// Esta es tu interfaz personalizada para el usuario de la aplicación.
 interface User {
   id: string; // Aquí es donde mapearemos firebaseUser.uid
   name: string; // Nombre a mostrar del usuario (displayName o parte del email)
@@ -17,29 +16,35 @@ export const useAuth = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // onAuthStateChanged es el listener de Firebase que se dispara cuando el estado de autenticación cambia.
-    // Recibe el objeto de usuario de Firebase (FirebaseUser | null).
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
-        // Si hay un usuario autenticado de Firebase, creamos un objeto con nuestra interfaz 'User'
-        // mapeando firebaseUser.uid a 'id'.
         setUser({
-          id: firebaseUser.uid, // <--- ¡Esta es la clave! Mapeamos uid a id.
-          // Prioriza displayName, si no existe, usa la parte del email antes del @, o "Usuario" como fallback.
+          id: firebaseUser.uid,
           name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuario',
           email: firebaseUser.email,
         });
       } else {
-        // Si no hay usuario autenticado, establecemos el estado del usuario a null.
         setUser(null);
       }
-      setLoading(false); // La carga inicial del estado de autenticación ha terminado.
+      setLoading(false);
     });
 
-    // La función de limpieza se ejecuta cuando el componente que usa este hook se desmonta.
-    // Esto es importante para evitar fugas de memoria y múltiples listeners.
     return () => unsubscribe();
-  }, []); // El array de dependencias vacío asegura que este efecto se ejecute solo una vez al montar el componente.
+  }, []);
 
-  return { user, loading }; // Devuelve el objeto de usuario y el estado de carga.
+  // Función para cerrar sesión
+  const logout = async () => {
+    try {
+      await signOut(auth);
+      // Opcional: Podrías limpiar el estado local del usuario aquí,
+      // aunque onAuthStateChanged ya se encargará de ponerlo a null.
+      setUser(null);
+      console.log("useAuth: Sesión de Firebase cerrada exitosamente.");
+    } catch (error) {
+      console.error("useAuth: Error al cerrar sesión de Firebase:", error);
+      throw error; // Propaga el error para que el componente que llama pueda manejarlo
+    }
+  };
+
+  return { user, loading, logout }; // ¡Ahora también devolvemos la función logout!
 };
