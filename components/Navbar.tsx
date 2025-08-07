@@ -1,6 +1,6 @@
 // components/Navbar.tsx
 import Link from 'next/link';
-import { useAuth } from '@/hooks/useAuth'; // Usando alias @/
+import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/router';
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
@@ -48,75 +48,14 @@ const Navbar = () => {
     }
   };
 
-  // Clases para enlaces de navegación principales con efecto de subrayado
+  // Clases para enlaces de navegación principales sin animaciones
   const navLinkClasses = (href: string) =>
-    `relative block px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-300 ease-in-out
+    `relative block px-4 py-2 rounded-lg text-sm font-semibold
     ${
       router.pathname === href
         ? 'text-white bg-blue-600 shadow-inner' // Enlace activo
-        : 'text-blue-100 hover:text-white group' // Enlace inactivo con grupo para hover
-    }
-    transform hover:scale-105`;
-
-  // Estilo para el subrayado animado en hover
-  const underlineHoverEffect = `
-    .group:after {
-      content: '';
-      position: absolute;
-      width: 0%;
-      height: 2px;
-      display: block;
-      margin-top: 5px;
-      right: 0;
-      background: #fff;
-      transition: width 0.3s ease;
-    }
-    .group:hover:after {
-      width: 100%;
-      left: 0;
-      background: #fff;
-    }
-    .group:hover {
-      background-color: rgba(255, 255, 255, 0.1); /* Fondo sutil en hover */
-      border-radius: 0.5rem;
-    }
-  `;
-
-  // Estilos de botón Uiverse para "Iniciar Sesión" y "Empezar Aquí"
-  const uiverseButtonPublic = `
-    .uiverse-button {
-      position: relative;
-      background-color: #ffffff;
-      padding: 0.75rem 1.5rem;
-      border-radius: 9999px; /* Fully rounded */
-      font-size: 0.875rem; /* text-sm */
-      font-weight: 600; /* font-semibold */
-      color: #2563eb; /* blue-600 */
-      overflow: hidden;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-      border: none;
-    }
-
-    .uiverse-button:hover {
-      background-color: #eff6ff; /* blue-50 */
-      transform: translateY(-2px);
-      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
-    }
-
-    .uiverse-button.primary {
-      background-color: #2563eb; /* blue-600 */
-      color: #ffffff;
-    }
-
-    .uiverse-button.primary:hover {
-      background-color: #1d4ed8; /* blue-700 */
-      transform: translateY(-2px);
-      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
-    }
-  `;
-
+        : 'text-blue-100 hover:text-white hover:bg-blue-600' // Enlace inactivo sin animaciones
+    }`;
 
   const getUserDisplayName = () => {
     if (user && user.displayName) {
@@ -134,14 +73,10 @@ const Navbar = () => {
 
   return (
     <nav className="bg-gradient-to-r from-blue-500 to-blue-700 shadow-xl relative z-50 font-inter">
-      <style jsx>{`
-        ${underlineHoverEffect}
-        ${uiverseButtonPublic}
-      `}</style>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
           <div className="flex items-center">
-            <Link href="/" className="flex-shrink-0 text-white text-3xl font-extrabold tracking-tight hover:text-blue-100 transition-colors duration-200">
+            <Link href="/" className="flex-shrink-0 text-white text-3xl font-extrabold tracking-tight">
                 MentorApp
             </Link>
           </div>
@@ -156,11 +91,11 @@ const Navbar = () => {
                 <Link href="/plans" className={navLinkClasses("/plans")}>Planes y Paquetes</Link>
                 <Link href="/dashboard/ayuda" className={navLinkClasses("/dashboard/ayuda")}>Ayuda</Link>
                 <Link href="/dashboard/diagnostico" className={navLinkClasses("/dashboard/diagnostico")}>Diagnóstico</Link>
-                <Link href="/dashboard/pagos" className={navLinkClasses("/dashboard/pagos")}>Pagos</Link> {/* Movido al final */}
+                <Link href="/dashboard/pagos" className={navLinkClasses("/dashboard/pagos")}>Pagos</Link>
 
-                <div className="relative group" ref={dropdownRef}>
+                <div className="relative" ref={dropdownRef}>
                   <button
-                    className="text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm font-medium flex items-center transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105"
+                    className="text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm font-medium flex items-center shadow-md"
                     onClick={() => setDropdownOpen(!dropdownOpen)}
                     disabled={isLoggingOut}
                   >
@@ -170,14 +105,14 @@ const Navbar = () => {
                     </svg>
                   </button>
                   {dropdownOpen && (
-                    <div className="absolute right-0 mt-2 w-48 rounded-lg shadow-xl py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none transition-all duration-300 ease-in-out transform scale-100 origin-top-right z-50">
-                      <Link href="/perfil" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-md transition-colors duration-200" onClick={() => setDropdownOpen(false)}>
+                    <div className="absolute right-0 mt-2 w-48 rounded-lg shadow-xl py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
+                      <Link href="/perfil" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-md" onClick={() => setDropdownOpen(false)}>
                         <FaCog className="mr-2" /> Mi Perfil
                       </Link>
                       <div className="border-t border-gray-100 my-1"></div>
                       <button
                         onClick={handleLogout}
-                        className="flex items-center w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 rounded-md transition-colors duration-200"
+                        className="flex items-center w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 rounded-md"
                         disabled={isLoggingOut}
                       >
                         <FaSignOutAlt className="mr-2" /> {isLoggingOut ? 'Cerrando sesión...' : 'Cerrar Sesión'}
@@ -194,13 +129,13 @@ const Navbar = () => {
 
                 <button
                   onClick={() => router.push('/login')}
-                  className="uiverse-button"
+                  className="bg-white px-4 py-2 rounded-full text-sm font-semibold text-blue-600 hover:bg-gray-200 shadow-md border border-gray-200"
                 >
                   Iniciar Sesión
                 </button>
                 <button
                   onClick={() => router.push('/register')}
-                  className="uiverse-button primary"
+                  className="bg-blue-600 px-4 py-2 rounded-full text-sm font-semibold text-white hover:bg-blue-700 shadow-md"
                 >
                   Empezar Aquí
                 </button>
@@ -212,7 +147,7 @@ const Navbar = () => {
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               type="button"
-              className="inline-flex items-center justify-center p-2 rounded-md text-blue-100 hover:text-white hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white transition-colors duration-200"
+              className="inline-flex items-center justify-center p-2 rounded-md text-blue-100 hover:text-white hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
               aria-controls="mobile-menu"
               aria-expanded={mobileMenuOpen ? 'true' : 'false'}
             >
@@ -235,24 +170,23 @@ const Navbar = () => {
 
           {user ? (
             <>
-              <Link href="/dashboard/inicio" className="text-white text-3xl font-bold hover:text-blue-200 transition-colors duration-200" onClick={() => setMobileMenuOpen(false)}>Inicio</Link>
-              <Link href="/dashboard/mentoria" className="text-white text-3xl font-bold hover:text-blue-200 transition-colors duration-200" onClick={() => setMobileMenuOpen(false)}>Mentoría</Link>
-              <Link href="/dashboard/cursos" className="text-white text-3xl font-bold hover:text-blue-200 transition-colors duration-200" onClick={() => setMobileMenuOpen(false)}>Cursos</Link>
-              <Link href="/dashboard/marketplace" className="text-white text-3xl font-bold hover:text-blue-200 transition-colors duration-200" onClick={() => setMobileMenuOpen(false)}>Marketplace</Link>
-              <Link href="/plans" className="text-white text-3xl font-bold hover:text-blue-200 transition-colors duration-200" onClick={() => setMobileMenuOpen(false)}>Planes y Paquetes</Link>
-              <Link href="/dashboard/ayuda" className="text-white text-3xl font-bold hover:text-blue-200 transition-colors duration-200" onClick={() => setMobileMenuOpen(false)}>Ayuda</Link>
-              <Link href="/dashboard/diagnostico" className="text-white text-3xl font-bold hover:text-blue-200 transition-colors duration-200" onClick={() => setMobileMenuOpen(false)}>Mi Diagnóstico</Link>
-              <Link href="/dashboard/pagos" className="text-white text-3xl font-bold hover:text-blue-200 transition-colors duration-200" onClick={() => setMobileMenuOpen(false)}>Pagos</Link>
+              <Link href="/dashboard/inicio" className="text-white text-3xl font-bold hover:text-blue-200" onClick={() => setMobileMenuOpen(false)}>Inicio</Link>
+              <Link href="/dashboard/mentoria" className="text-white text-3xl font-bold hover:text-blue-200" onClick={() => setMobileMenuOpen(false)}>Mentoría</Link>
+              <Link href="/dashboard/cursos" className="text-white text-3xl font-bold hover:text-blue-200" onClick={() => setMobileMenuOpen(false)}>Cursos</Link>
+              <Link href="/dashboard/marketplace" className="text-white text-3xl font-bold hover:text-blue-200" onClick={() => setMobileMenuOpen(false)}>Marketplace</Link>
+              <Link href="/plans" className="text-white text-3xl font-bold hover:text-blue-200" onClick={() => setMobileMenuOpen(false)}>Planes y Paquetes</Link>
+              <Link href="/dashboard/ayuda" className="text-white text-3xl font-bold hover:text-blue-200" onClick={() => setMobileMenuOpen(false)}>Ayuda</Link>
+              <Link href="/dashboard/diagnostico" className="text-white text-3xl font-bold hover:text-blue-200" onClick={() => setMobileMenuOpen(false)}>Mi Diagnóstico</Link>
+              <Link href="/dashboard/pagos" className="text-white text-3xl font-bold hover:text-blue-200" onClick={() => setMobileMenuOpen(false)}>Pagos</Link>
               <div className="border-t border-blue-500 w-2/3 my-4"></div>
-              <Link href="/perfil" className="text-white text-3xl font-bold hover:text-blue-200 transition-colors duration-200" onClick={() => setMobileMenuOpen(false)}>Mi Perfil</Link>
+              <Link href="/perfil" className="text-white text-3xl font-bold hover:text-blue-200" onClick={() => setMobileMenuOpen(false)}>Mi Perfil</Link>
               <button
                 onClick={handleLogout}
-                className="bg-red-600 text-white px-6 py-3 rounded-full font-semibold text-xl hover:bg-red-700 transition-colors duration-200 shadow-lg"
+                className="bg-red-600 text-white px-6 py-3 rounded-full font-semibold text-xl hover:bg-red-700 shadow-lg"
                 disabled={isLoggingOut}
               >
                 {isLoggingOut ? (
                   <div className="flex items-center justify-center">
-                    <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
                     Cerrando...
                   </div>
                 ) : (
@@ -262,19 +196,19 @@ const Navbar = () => {
             </>
           ) : (
             <>
-              <Link href="/" className="text-white text-3xl font-bold hover:text-blue-200 transition-colors duration-200" onClick={() => setMobileMenuOpen(false)}>Inicio</Link>
-              <Link href="/services" className="text-white text-3xl font-bold hover:text-blue-200 transition-colors duration-200" onClick={() => setMobileMenuOpen(false)}>Servicios</Link>
-              <Link href="/community" className="text-white text-3xl font-bold hover:text-blue-200 transition-colors duration-200" onClick={() => setMobileMenuOpen(false)}>Comunidad</Link>
+              <Link href="/" className="text-white text-3xl font-bold hover:text-blue-200" onClick={() => setMobileMenuOpen(false)}>Inicio</Link>
+              <Link href="/services" className="text-white text-3xl font-bold hover:text-blue-200" onClick={() => setMobileMenuOpen(false)}>Servicios</Link>
+              <Link href="/community" className="text-white text-3xl font-bold hover:text-blue-200" onClick={() => setMobileMenuOpen(false)}>Comunidad</Link>
               <div className="border-t border-blue-500 w-2/3 my-4"></div>
               <button
                 onClick={() => { router.push('/login'); setMobileMenuOpen(false); }}
-                className="uiverse-button"
+                className="bg-white px-4 py-2 rounded-full text-sm font-semibold text-blue-600 hover:bg-gray-200 shadow-md border border-gray-200"
               >
                 Iniciar Sesión
               </button>
               <button
                 onClick={() => { router.push('/register'); setMobileMenuOpen(false); }}
-                className="uiverse-button primary"
+                className="bg-blue-600 px-4 py-2 rounded-full text-sm font-semibold text-white hover:bg-blue-700 shadow-md"
               >
                 Empezar Aquí
               </button>
